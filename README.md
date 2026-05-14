@@ -103,3 +103,7 @@ All input datasets used in this study are openly available. Due to file size lim
 ### 2.2 Expected folder structure
 
 After downloading, organize the files in `data/` as follows:
+
+
+
+Desert map can be downloaded from ... https://zenodo.org/records/10441041.
