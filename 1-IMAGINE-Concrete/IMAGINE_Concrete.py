@@ -10,7 +10,8 @@ from pathlib import Path
 # ============ Configuration ============
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-RESULTS = ROOT / "results"
+# RESULTS = ROOT / "results"
+RESULTS = Path(r"F:\aggregates-mining-biodiversity\results")
 
 # ============ Tool functions ============
 def make_constant_values(df, n_sim):
@@ -84,31 +85,33 @@ def cal_dem_rate_conditional(lft_mat, start=1931, mid=2022, end=2050):
 
 
 def fit_logistic_with_constraints(
-                                  hist_values,
-                                  future_growth,
-                                  start=1931, mid=2022, end=2050,
-                                    r_grid=np.linspace(0.05, 0.8, 100),
-                                    t0_grid=np.linspace(1950, 2040, 120),
-                                    recent_weight=3.0, recent_from=1990):
-        
+        hist_values, future_growth,
+        start=1931, mid=2022, end=2050,
+        r_grid=np.linspace(0.05, 0.8, 100),
+        t0_grid=np.linspace(1950, 2040, 120),
+        recent_weight=3.0, recent_from=1990):
+
     def logistic_4p(t, A, K, r, t0):
         return A + (K - A) / (1.0 + np.exp(-r * (t - t0)))
-    
-    def solve_AK_for_endpoints(r, t0, y_mid, y_end):
-        L1 = 1.0 / (1.0 + np.exp(-r * (mid - t0)))
-        L2 = 1.0 / (1.0 + np.exp(-r * (end - t0)))
-        M = np.array([[1 - L1, L1],
-                    [1 - L2, L2]], dtype=float)
-        y = np.array([y_mid, y_end], dtype=float)
-        A, K = np.linalg.solve(M, y)
-        return A, K
 
-
-    hist_years = np.array([t for t in range(start, mid+1)])
-    # hist_values = np.array(df_hist.values.tolist())
-
+    hist_years = np.arange(start, mid + 1)
+    future_years = np.arange(mid + 1, end + 1)
     y_mid = hist_values[-1]
     y_end = y_mid * future_growth
+
+    # --- Non-growth case: keep history as-is, linear bridge to y_end ---
+    if future_growth <= 1.0 + 1e-6:
+        future_fit = np.linspace(y_mid, y_end, len(future_years) + 1)[1:]
+        values = np.concatenate([hist_values, future_fit])
+        return pd.Series(values, index=np.arange(start, end + 1))
+
+    # --- Growth case: original logistic fit ---
+    def solve_AK_for_endpoints(r, t0):
+        L1 = 1.0 / (1.0 + np.exp(-r * (mid - t0)))
+        L2 = 1.0 / (1.0 + np.exp(-r * (end - t0)))
+        M = np.array([[1 - L1, L1], [1 - L2, L2]], dtype=float)
+        y = np.array([y_mid, y_end], dtype=float)
+        return np.linalg.solve(M, y)
 
     w = np.ones_like(hist_years, dtype=float)
     w[hist_years >= recent_from] = recent_weight
@@ -120,27 +123,17 @@ def fit_logistic_with_constraints(
             L2 = 1.0 / (1.0 + np.exp(-r * (end - t0)))
             if abs(L2 - L1) < 1e-6:
                 continue
-
-            A, K = solve_AK_for_endpoints(r, t0, y_mid, y_end)
-            if not (r > 0 and K > A):
+            A, K = solve_AK_for_endpoints(r, t0)
+            if not (K > A):
                 continue
-
             y_hat = logistic_4p(hist_years, A, K, r, t0)
             err = np.average((y_hat - hist_values) ** 2, weights=w)
             if err < best["err"]:
                 best = {"err": err, "r": r, "t0": t0, "A": A, "K": K}
 
-
-    r = best["r"]
-    t0 = best["t0"]
-    A = best["A"]
-    K = best["K"]
     years = np.arange(start, end + 1, dtype=float)
-    values = logistic_4p(years, A, K, r, t0)
-    df_results = pd.Series(values, years)
-
-    return df_results
-
+    values = logistic_4p(years, best["A"], best["K"], best["r"], best["t0"])
+    return pd.Series(values, years)
 
 
 # ============ load input data（for 142 economies） ============
