@@ -16,7 +16,7 @@ This repository contains the full computational workflow for projecting global c
 6. [Section 1 — IMAGINE-Concrete: material flow analysis](#6-section-1--imagine-concrete-material-flow-analysis)
 7. [Section 2 — Mining suitability model](#7-section-2--mining-suitability-model)
 8. [Section 3 — Mining area simulation](#8-section-3--mining-area-simulation)
-9. [Section 4 — Biodiversity impact assessment](#9-section-4--biodiversity-impact-assessment)
+9. [Section 4 — Biodiversity risk assessment](#9-section-4--biodiversity-risk-assessment)
 10. [Section 9 — Figures](#10-section-9--figures)
 11. [Key results summary](#11-key-results-summary)
 12. [Citation](#12-citation)
@@ -68,7 +68,7 @@ aggregate-mining-biodiversity/
 │   ├── 5-2-strategic-planning.ipynb
 │   └── 6-mining-area-estimation.ipynb
 │
-├── 4-biodiversity-impact-assessment/   # Species range mapping & richness
+├── 4-biodiversity-risk-assessment/   # Species range mapping & richness
 │   ├── 1-make-range-raster-for-amphibians.ipynb
 │   ├── 1-make-range-raster-for-birds.ipynb
 │   ├── 1-make-range-raster-for-mammals.ipynb
@@ -396,9 +396,9 @@ This section combines extraction demands from Section 1 with the suitability map
 
 ---
 
-## 9. Section 4 — Biodiversity impact assessment
+## 9. Section 4 — Biodiversity risk assessment
 
-**Folder:** `4-biodiversity-impact-assessment/`
+**Folder:** `4-biodiversity-risk-assessment/`
 
 Species range maps and habitat suitability data are combined to quantify how projected mining expansion affects global vertebrate biodiversity, focusing on species richness and the concentration of geographically restricted (rare) species.
 

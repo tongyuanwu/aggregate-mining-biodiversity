@@ -109,9 +109,14 @@ def fit_logistic_with_constraints(
     def solve_AK_for_endpoints(r, t0):
         L1 = 1.0 / (1.0 + np.exp(-r * (mid - t0)))
         L2 = 1.0 / (1.0 + np.exp(-r * (end - t0)))
-        M = np.array([[1 - L1, L1], [1 - L2, L2]], dtype=float)
-        y = np.array([y_mid, y_end], dtype=float)
-        return np.linalg.solve(M, y)
+        # Closed-form 2x2 solve of M @ [A, K] = [y_mid, y_end] with
+        #   M = [[1-L1, L1], [1-L2, L2]]  ->  det = L2 - L1 (caller guarantees |L2-L1|>1e-6).
+        # Identical to np.linalg.solve but avoids a LAPACK call that crashes natively
+        # (Windows 0xc06d007f) in this env's numpy when run in the main process / kernel.
+        det = L2 - L1
+        A = (L2 * y_mid - L1 * y_end) / det
+        K = ((1.0 - L1) * y_end - (1.0 - L2) * y_mid) / det
+        return np.array([A, K], dtype=float)
 
     w = np.ones_like(hist_years, dtype=float)
     w[hist_years >= recent_from] = recent_weight
@@ -204,11 +209,12 @@ def run_historical(
     n_sim: int = 10_000,
     seed: int = 42,
     std: float = 0.05,
+    hist_subdir: str = "historical",
 ):
-    
+
     rng = np.random.default_rng(seed)
     span = end - start + 1
-    out_dir = RESULTS / "material-flows" / economy / "historical"
+    out_dir = RESULTS / "material-flows" / economy / hist_subdir
     out_dir.mkdir(parents=True, exist_ok=True)
 
     def save_data(var, generated_data, out_dir=out_dir):
@@ -1033,22 +1039,22 @@ variable_list = [
     'p_cement_import',
     'p_clinker_export',
     'p_clinker_import',
-    'p_sand_export',
-    'p_sand_import',
-    'p_gravel_export',
-    'p_gravel_import',
-    'p_limestone_export',
-    'p_limestone_import',
-    'gravel_export',
-    'gravel_import',
-    'sand_export',
-    'sand_import',
-    'excess_gravel',
-    'excess_sand',
-    'gravel_stock',
-    'sand_stock',
-    'consumed_gravel_stock',
-    'consumed_sand_stock',
+    # 'p_sand_export',
+    # 'p_sand_import',
+    # 'p_gravel_export',
+    # 'p_gravel_import',
+    # 'p_limestone_export',
+    # 'p_limestone_import',
+    # 'gravel_export',
+    # 'gravel_import',
+    # 'sand_export',
+    # 'sand_import',
+    # 'excess_gravel',
+    # 'excess_sand',
+    # 'gravel_stock',
+    # 'sand_stock',
+    # 'consumed_gravel_stock',
+    # 'consumed_sand_stock',
     'gravel_production',
     'sand_production',
     'reused_and_recycled_gravel',
@@ -1073,12 +1079,12 @@ variable_list = [
     'clinker_production',
     'r_Ca',
     'RawMat_Ca',
-    'limestone_export',
-    'limestone_import',
-    'excess_limestone',
-    'limestone_stock',
-    'consumed_limestone_stock',
-    'limestone_stock',
+    # 'limestone_export',
+    # 'limestone_import',
+    # 'excess_limestone',
+    # 'limestone_stock',
+    # 'consumed_limestone_stock',
+    # 'limestone_stock',
     'limestone_extraction',
     'S_coarse_annual',
     'S_fine_annual',
@@ -1103,15 +1109,18 @@ def run_projection(
     reuse_rate=0,
     recycle_rate=0,
     sand_sub=0,
-    CCR_reduction=0,
+    oresand_supply=np.inf,
+    clinker_target=None,
     end=2050,
     mid=2022,
     ssp='SSP2',
     n_sim=10000,
-    seed=42
+    seed=42,
+    ambition=1.0,    # global CE-ambition multiplier phi in [0,1]: 0 -> BAU, 1 -> full CE target
+    hist_subdir='historical',
 ):
-    
-    hist_dir   = RESULTS / 'material-flows' / economy / 'historical'
+
+    hist_dir   = RESULTS / 'material-flows' / economy / hist_subdir
     output_dir = RESULTS / 'material-flows' / economy / scenario
     output_dir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
@@ -1124,6 +1133,15 @@ def run_projection(
     # std = 0.05 if if_developed == 1 else 0.1
     std = 0.05
     
+    # --- global CE-ambition multiplier (phi in [0,1]): scale every lever's 2050 target ---
+    # 0 -> BAU (no measures), 1 -> full CE target. Backward-compatible (default ambition=1.0).
+    # clinker is an absolute k-factor, so it is scaled inside its own ramp (fut_CCR) below.
+    more_intensive_use = ambition * more_intensive_use
+    lifetime_extension = ambition * lifetime_extension
+    reuse_rate         = ambition * reuse_rate
+    recycle_rate       = ambition * recycle_rate
+    sand_sub           = ambition * sand_sub
+
     lft_extension = 1 + lifetime_extension
     span = end - mid
 
@@ -1154,7 +1172,9 @@ def run_projection(
                 fut_dem_rate,
                 future_stock_trajectory,
                 hist_dir,
-                output_dir)
+                output_dir,
+                n_sim=n_sim,
+                seed=seed)
 
         binder_stock = np.nansum([np.load(output_dir / f'S_binder_for_concrete_{app}_{strength}_annual.npz')['data'] for strength in ['C15', 'C16_23', 'C24_35', 'C35']], axis=0)
         binder_inflow = np.nansum([np.load(output_dir / f'I_binder_for_concrete_{app}_{strength}_annual.npz')['data'] for strength in ['C15', 'C16_23', 'C24_35', 'C35']], axis=0)
@@ -1183,7 +1203,9 @@ def run_projection(
             fut_dem_rate,
             future_stock_trajectory,
             hist_dir,
-            output_dir
+            output_dir,
+            n_sim=n_sim,
+            seed=seed
             )
 
     for material in ['concrete', 'mortar']:
@@ -1219,9 +1241,14 @@ def run_projection(
     recycle_factors = np.tile(np.linspace(0, recycle_rate, span+1)[1:], (n_sim, 1))
     sand_sub_factors = np.tile(np.linspace(0, sand_sub, span+1)[1:], (n_sim, 1))
 
-    CCR_factors = np.tile(np.linspace(1, 1 - CCR_reduction, span+1)[1:], (n_sim, 1))
     his_CCR = np.load(hist_dir / 'CCR.npz')['data']
-    fut_CCR = CCR_factors * his_CCR[:, -1][:, None]
+    base_CCR = his_CCR[:, -1][:, None]                                   # 2022 clinker-to-cement ratio (per sim)
+    if clinker_target is None:
+        fut_CCR = np.repeat(base_CCR, span, axis=1)                      # no clinker change (BAU): flat at base
+    else:
+        ccr_ramp = np.linspace(0, 1, span+1)[1:][None, :]                # 0 -> 1 over 2023..2050
+        # ramp base toward the absolute target, reduction only (never increase a base already below target)
+        fut_CCR = base_CCR - ambition * np.maximum(base_CCR - clinker_target, 0.0) * ccr_ramp
 
     I_binder_for_concrete_annual_ru = np.load(output_dir / 'O_binder_for_concrete_annual.npz')['data'] * reuse_factors 
     I_binder_for_mortar_annual_ru = np.load(output_dir / 'O_binder_for_mortar_annual.npz')['data'] * reuse_factors 
@@ -1244,17 +1271,17 @@ def run_projection(
     his_clinker_export      = np.load(hist_dir / 'clinker_export.npz')['data']
     his_clinker_import      = np.load(hist_dir / 'clinker_import.npz')['data']
 
-    his_fine_total  = np.load(hist_dir / 'fine_total.npz')['data']
-    his_sand_export = np.load(hist_dir / 'sand_export.npz')['data']
-    his_sand_import = np.load(hist_dir / 'sand_import.npz')['data']
+    # his_fine_total  = np.load(hist_dir / 'fine_total.npz')['data']
+    # his_sand_export = np.load(hist_dir / 'sand_export.npz')['data']
+    # his_sand_import = np.load(hist_dir / 'sand_import.npz')['data']
 
-    his_coarse_total  = np.load(hist_dir / 'coarse_total.npz')['data']
-    his_gravel_export = np.load(hist_dir / 'gravel_export.npz')['data']
-    his_gravel_import = np.load(hist_dir / 'gravel_import.npz')['data']
+    # his_coarse_total  = np.load(hist_dir / 'coarse_total.npz')['data']
+    # his_gravel_export = np.load(hist_dir / 'gravel_export.npz')['data']
+    # his_gravel_import = np.load(hist_dir / 'gravel_import.npz')['data']
 
-    his_RawMat_Ca        = np.load(hist_dir / 'RawMat_Ca.npz')['data']
-    his_limestone_export = np.load(hist_dir / 'limestone_export.npz')['data']
-    his_limestone_import = np.load(hist_dir / 'limestone_import.npz')['data']
+    # his_RawMat_Ca        = np.load(hist_dir / 'RawMat_Ca.npz')['data']
+    # his_limestone_export = np.load(hist_dir / 'limestone_export.npz')['data']
+    # his_limestone_import = np.load(hist_dir / 'limestone_import.npz')['data']
 
     p_cement_export = np.divide(his_cement_export[:, -1], his_cement_consumption[:, -1], out=np.zeros_like(his_cement_export[:, -1], dtype=np.float32), where=his_cement_consumption[:, -1] != 0)
     p_cement_import = np.divide(his_cement_import[:, -1], his_cement_consumption[:, -1], out=np.zeros_like(his_cement_import[:, -1], dtype=np.float32), where=his_cement_consumption[:, -1] != 0)
@@ -1262,39 +1289,42 @@ def run_projection(
     p_clinker_export = np.divide(his_clinker_export[:, -1], his_clinker_consumption[:, -1], out=np.zeros_like(his_clinker_export[:, -1], dtype=np.float32), where=his_clinker_consumption[:, -1] != 0)
     p_clinker_import = np.divide(his_clinker_import[:, -1], his_clinker_consumption[:, -1], out=np.zeros_like(his_clinker_import[:, -1], dtype=np.float32), where=his_clinker_consumption[:, -1] != 0)
 
-    p_sand_export = np.divide(his_sand_export[:, -1], his_fine_total[:, -1], out=np.zeros_like(his_sand_export[:, -1], dtype=np.float32), where=his_fine_total[:, -1] != 0)
-    p_sand_import = np.divide(his_sand_import[:, -1], his_fine_total[:, -1], out=np.zeros_like(his_sand_import[:, -1], dtype=np.float32), where=his_fine_total[:, -1] != 0)
+    # p_sand_export = np.divide(his_sand_export[:, -1], his_fine_total[:, -1], out=np.zeros_like(his_sand_export[:, -1], dtype=np.float32), where=his_fine_total[:, -1] != 0)
+    # p_sand_import = np.divide(his_sand_import[:, -1], his_fine_total[:, -1], out=np.zeros_like(his_sand_import[:, -1], dtype=np.float32), where=his_fine_total[:, -1] != 0)
 
-    p_gravel_export = np.divide(his_gravel_export[:, -1], his_coarse_total[:, -1], out=np.zeros_like(his_gravel_export[:, -1], dtype=np.float32), where=his_coarse_total[:, -1] != 0)
-    p_gravel_import = np.divide(his_gravel_import[:, -1], his_coarse_total[:, -1], out=np.zeros_like(his_gravel_import[:, -1], dtype=np.float32), where=his_coarse_total[:, -1] != 0)
+    # p_gravel_export = np.divide(his_gravel_export[:, -1], his_coarse_total[:, -1], out=np.zeros_like(his_gravel_export[:, -1], dtype=np.float32), where=his_coarse_total[:, -1] != 0)
+    # p_gravel_import = np.divide(his_gravel_import[:, -1], his_coarse_total[:, -1], out=np.zeros_like(his_gravel_import[:, -1], dtype=np.float32), where=his_coarse_total[:, -1] != 0)
 
-    p_limestone_export = np.divide(his_limestone_export[:, -1], his_RawMat_Ca[:, -1], out=np.zeros_like(his_limestone_export[:, -1], dtype=np.float32), where=his_RawMat_Ca[:, -1] != 0)
-    p_limestone_import = np.divide(his_limestone_import[:, -1], his_RawMat_Ca[:, -1], out=np.zeros_like(his_limestone_import[:, -1], dtype=np.float32), where=his_RawMat_Ca[:, -1] != 0)
+    # p_limestone_export = np.divide(his_limestone_export[:, -1], his_RawMat_Ca[:, -1], out=np.zeros_like(his_limestone_export[:, -1], dtype=np.float32), where=his_RawMat_Ca[:, -1] != 0)
+    # p_limestone_import = np.divide(his_limestone_import[:, -1], his_RawMat_Ca[:, -1], out=np.zeros_like(his_limestone_import[:, -1], dtype=np.float32), where=his_RawMat_Ca[:, -1] != 0)
 
-    gravel_production_ = I_coarse_annual / (1 + p_gravel_export - p_gravel_import)[:, None]
-    sand_production_ = I_fine_annual / (1 + p_sand_export - p_sand_import)[:, None]
+    # gravel_production_ = I_coarse_annual / (1 + p_gravel_export - p_gravel_import)[:, None]
+    # sand_production_ = I_fine_annual / (1 + p_sand_export - p_sand_import)[:, None]
 
-    gravel_export = I_coarse_annual * p_gravel_export[:, None]
-    gravel_import = I_coarse_annual * p_gravel_import[:, None]
+    # gravel_export = I_coarse_annual * p_gravel_export[:, None]
+    # gravel_import = I_coarse_annual * p_gravel_import[:, None]
 
-    sand_export = I_fine_annual * p_sand_export[:, None]
-    sand_import = I_fine_annual * p_sand_import[:, None]
+    # sand_export = I_fine_annual * p_sand_export[:, None]
+    # sand_import = I_fine_annual * p_sand_import[:, None]
 
-    excess_gravel = np.where(gravel_production_ < 0 , -gravel_production_, 0)
-    excess_sand = np.where(sand_production_ < 0 , -sand_production_, 0)
+    # excess_gravel = np.where(gravel_production_ < 0 , -gravel_production_, 0)
+    # excess_sand = np.where(sand_production_ < 0 , -sand_production_, 0)
 
-    his_gravel_stock = np.load(hist_dir / 'gravel_stock.npz')['data']
-    his_sand_stock = np.load(hist_dir / 'sand_stock.npz')['data']
-    his_limestone_stock = np.load(hist_dir / 'limestone_stock.npz')['data']
+    # his_gravel_stock = np.load(hist_dir / 'gravel_stock.npz')['data']
+    # his_sand_stock = np.load(hist_dir / 'sand_stock.npz')['data']
+    # his_limestone_stock = np.load(hist_dir / 'limestone_stock.npz')['data']
 
-    gravel_stock = excess_gravel.cumsum(axis=1) + his_gravel_stock[:, -1][:, None]
-    sand_stock = excess_sand.cumsum(axis=1) + his_sand_stock[:, -1][:, None]
+    # gravel_stock = excess_gravel.cumsum(axis=1) + his_gravel_stock[:, -1][:, None]
+    # sand_stock = excess_sand.cumsum(axis=1) + his_sand_stock[:, -1][:, None]
 
-    consumed_gravel_stock = np.where((gravel_stock > 0) & (gravel_production_ > 0), np.where(gravel_production_ <= gravel_stock, gravel_production_, gravel_stock), 0)
-    consumed_sand_stock = np.where((sand_stock > 0) & (sand_production_ > 0), np.where(sand_production_ <= sand_stock, sand_production_, sand_stock), 0)
+    # consumed_gravel_stock = np.where((gravel_stock > 0) & (gravel_production_ > 0), np.where(gravel_production_ <= gravel_stock, gravel_production_, gravel_stock), 0)
+    # consumed_sand_stock = np.where((sand_stock > 0) & (sand_production_ > 0), np.where(sand_production_ <= sand_stock, sand_production_, sand_stock), 0)
 
-    gravel_production = np.where(gravel_production_ >= consumed_gravel_stock, gravel_production_ - consumed_gravel_stock, 0)
-    sand_production = np.where(sand_production_ >= consumed_sand_stock, sand_production_ - consumed_sand_stock, 0)
+    # gravel_production = np.where(gravel_production_ >= consumed_gravel_stock, gravel_production_ - consumed_gravel_stock, 0)
+    # sand_production = np.where(sand_production_ >= consumed_sand_stock, sand_production_ - consumed_sand_stock, 0)
+
+    gravel_production = I_coarse_annual
+    sand_production   = I_fine_annual
 
     reused_gravel_ = O_coarse_annual * reuse_factors
     recycled_gravel_ = O_coarse_annual * recycle_factors
@@ -1317,7 +1347,9 @@ def run_projection(
     p_recycled_sand = np.divide(recycled_sand_, reused_and_recycled_sand_, out=np.zeros_like(recycled_sand_, dtype=np.float32), where=reused_and_recycled_sand_ != 0)
     reused_sand = reused_and_recycled_sand * p_reused_sand
     recycled_sand = reused_and_recycled_sand * p_recycled_sand
-    substituted_sand = (sand_production - reused_and_recycled_sand) * sand_sub_factors
+    substituted_sand = np.minimum(
+        (sand_production - reused_and_recycled_sand) * sand_sub_factors,
+        oresand_supply)                                                  # constant annual ore-sand supply ceiling (kt/yr)
     sand_extraction = sand_production - (reused_and_recycled_sand + substituted_sand)
 
     all_binder = I_binder_for_concrete_annual_v * (1 - p_binder_in_importPro + p_binder_in_exportPro)[:, None] + I_binder_for_mortar_annual_v
@@ -1334,14 +1366,17 @@ def run_projection(
     # r_Ca = np.vstack([data1['r_Ca'], data2['r_Ca']])[:, -1]
     r_Ca = make_uncertain_values(1.45402, std, span, n_sim, rng)
     RawMat_Ca = clinker_production * r_Ca
-    limestone_ = RawMat_Ca / (1 - p_limestone_export + p_limestone_import)[:, None]
-    limestone_export = RawMat_Ca * p_limestone_export[:, None]
-    limestone_import = RawMat_Ca * p_limestone_import[:, None]
-    excess_limestone = np.where(limestone_ < 0, -limestone_, 0)
-    limestone_stock = excess_limestone.cumsum(axis=1) + his_limestone_stock[:, -1][:, None]
-    consumed_limestone_stock = np.where((limestone_stock > 0) & (limestone_ > 0), np.where(limestone_ <= limestone_stock, limestone_, limestone_stock), 0)
-    limestone_stock = limestone_stock - consumed_limestone_stock
-    limestone_extraction = np.where(limestone_ >= consumed_limestone_stock, limestone_ - consumed_limestone_stock, 0)
+
+    # limestone_ = RawMat_Ca / (1 - p_limestone_export + p_limestone_import)[:, None]
+    # limestone_export = RawMat_Ca * p_limestone_export[:, None]
+    # limestone_import = RawMat_Ca * p_limestone_import[:, None]
+    # excess_limestone = np.where(limestone_ < 0, -limestone_, 0)
+    # limestone_stock = excess_limestone.cumsum(axis=1) + his_limestone_stock[:, -1][:, None]
+    # consumed_limestone_stock = np.where((limestone_stock > 0) & (limestone_ > 0), np.where(limestone_ <= limestone_stock, limestone_, limestone_stock), 0)
+    # limestone_stock = limestone_stock - consumed_limestone_stock
+    # limestone_extraction = np.where(limestone_ >= consumed_limestone_stock, limestone_ - consumed_limestone_stock, 0)
+
+    limestone_extraction = RawMat_Ca
 
     S_coarse_annual = (np.load(hist_dir / 'S_coarse_annual.npz')['data'][:, -1] * future_stock_trajectory[:, None]).T
     S_fine_annual   = (np.load(hist_dir / 'S_fine_annual.npz')['data'][:, -1] * future_stock_trajectory[:, None]).T
