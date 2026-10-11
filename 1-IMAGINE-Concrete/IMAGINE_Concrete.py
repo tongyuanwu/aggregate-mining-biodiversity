@@ -1387,7 +1387,7 @@ def run_projection(
     S_binder_growth = np.diff(S_binder_annual, axis=1)
 
     split_ratio_coarse = O_coarse_annual / I_coarse_annual
-    split_ratio_fine = O_coarse_annual / I_fine_annual
+    split_ratio_fine = O_fine_annual / I_fine_annual
     split_ratio_RawMat_Ca = O_binder_annual / I_binder_annual
 
     gravel_extraction_for_stock_growth = (1 - split_ratio_coarse) * gravel_extraction
