@@ -1,10 +1,12 @@
-# Future biodiversity risks of construction aggregate mining
+# Future biodiversity risks of land-sourced aggregate mining
 
 *Code and analysis pipeline for the manuscript by Wu, Cao, Torres et al. (2026)*
 
-This repository contains the full computational workflow for projecting global construction aggregate (sand, gravel, and limestone-for-cement) mining expansion through 2050 and assessing its overlap with terrestrial vertebrate biodiversity. The pipeline integrates material-flow analysis, machine-learning suitability modelling, trade-aware spatial allocation, and rarity-weighted biodiversity mapping into a single end-to-end framework, and evaluates how demand-side circular-economy measures and supply-side conservation-aware siting can jointly reduce mining's biodiversity footprint.
+This repository contains analysis code for projecting global construction aggregate (sand, gravel, and limestone-for-cement) mining expansion through 2050 and assessing its overlap with terrestrial vertebrate biodiversity. The pipeline integrates material-flow analysis, machine-learning suitability modelling, trade-aware spatial allocation, and rarity-weighted biodiversity mapping, and evaluates how demand-side circular-economy measures and supply-side conservation-aware siting can jointly reduce mining's biodiversity footprint.
 
-**Headline finding.** Under business-as-usual, projected construction aggregate extraction between 2023 and 2050 is approximately **447 Gt**, with a mining footprint of **~10,143 km²** and a total **mining-biodiversity overlap of ~2.6 species-range equivalents**. Combining an ambitious circular economy with conservation-aware siting reduces that overlap by **about 58%**. Numerical summaries and their output sources are given below.
+**Study scope.** Extraction estimates cover aggregates embodied in **concrete and mortar**, including limestone used for cement. They do not represent all construction-mineral extraction (for example, unbound road aggregates and non-cement limestone uses are outside the model boundary). The main scenario analysis uses **SSP2**; SSP1–5 stock projections provide the broader socioeconomic context. Mining footprints represent **additional disturbance during 2023–2050**, and mining-biodiversity overlap measures potential terrestrial exposure, not observed species losses.
+
+**Headline finding.** Under business-as-usual, projected construction aggregate extraction between 2023 and 2050 is approximately **446 Gt**, with a mining footprint of **~10,160 km²** and a total **mining-biodiversity overlap of ~2.6 species-range equivalents**. Combining an ambitious circular economy with conservation-aware siting reduces that overlap by **about 58%**. Numerical summaries and their output sources are given below.
 
 ---
 
@@ -29,7 +31,7 @@ This repository contains the full computational workflow for projecting global c
 
 ## 1. Repository structure
 
-The repository primarily distributes source code and this README. The `data/`, `results/`, `figures/`, and `text/` folders are excluded by `.gitignore` and are **not** distributed with the repository. Reproduction requires the external datasets and model-specific inputs listed in [Section 6](#6-data-acquisition), together with configuration of the paths used by the notebooks; cloning this repository alone does not supply those inputs.
+The repository primarily distributes source code and this README, together with the small source PDFs used to export Extended Data Figures 1 and 4. The `data/`, `results/`, `figures/`, and `text/` folders are excluded by `.gitignore` and are **not** distributed with the repository. Selected study outputs are available in the [Zenodo data record](https://doi.org/10.5281/zenodo.23290764), with its contents described in [Section 6](#6-data-acquisition). Reproduction requires the external datasets and model-specific inputs listed there, together with configuration of notebook paths; neither cloning this repository nor downloading the output archive supplies all upstream inputs.
 
 ```
 aggregate-mining-biodiversity/
@@ -38,8 +40,8 @@ aggregate-mining-biodiversity/
 │   ├── 1-make-country-raster.ipynb
 │   ├── 2-make-economy-raster.ipynb
 │   ├── 3-make-protected-area-raster.ipynb
-│   ├── 4-make-biome-raster.ipynb            ← WWF TEOW biomes
-│   ├── 4-make-biome-raster-2017.ipynb       ← RESOLVE Ecoregions 2017 (primary)
+│   ├── 4-make-biome-raster.ipynb            ← WWF TEOW biomes (used by Fig-1)
+│   ├── 4-make-biome-raster-2017.ipynb       ← alternative RESOLVE Ecoregions 2017 layers
 │   ├── 5-make-income-group-raster.ipynb
 │   ├── 8-make-region-mask.ipynb
 │   ├── 9-reproject-GDP-data.ipynb
@@ -93,9 +95,12 @@ aggregate-mining-biodiversity/
 ├── 9-draw-figures/                 # Publication figures (main, extended-data, supplementary)
 │   ├── Fig-1.ipynb … Fig-4.ipynb
 │   ├── Extended-Data-Figure-2.ipynb, -3, -5
-│   ├── Supplementary-Figure-1.ipynb … Supplementary-Figure-23.ipynb   (SF-15 not used)
+│   ├── Supplementary-Figure-1.ipynb … Supplementary-Figure-23.ipynb   (SF-15 is a separate schematic)
+│   ├── final_figure_export.py           ← final-size PDF/PNG/JPG export with editable PDF text
+│   ├── export_extended_data_schematics.py  ← export ED1 and ED4 from source PDF artwork
 │   └── _verify.py                      ← legacy figure helper (contains an obsolete notebook path)
 │
+├── source data/figure artwork/     # Source PDFs for Extended Data Figures 1 and 4
 ├── data/                           # Input data (download separately — see Section 6; git-ignored)
 ├── results/                        # Intermediate & final outputs (git-ignored)
 ├── figures/                        # Publication-ready figures (git-ignored)
@@ -120,10 +125,10 @@ Section 4 (steps 1–5; AOH and RWR) ────┘                  ↑
 |---------|------|------------|
 | 0 — Data preparation | Build the common equal-area analysis grid and rasterize administrative, conservation, and socioeconomic layers | Base-layer GeoTIFFs at 1–100 km in Eckert IV |
 | 1 — IMAGINE-Concrete | Project sand, gravel, and limestone extraction demand to 2050 for 142 economies | Probabilistic (10,000-run) annual demand by scenario |
-| 2 — Mining suitability | Train and apply a global Random Forest classifier on 136,666 quarries | 1 km global suitability raster (probability 0–1) |
+| 2 — Mining suitability | Train and apply a global Random Forest classifier using rasterized presences from 136,666 quarry polygons and sampled pseudo-absences | 1 km global suitability raster (divide stored uint16 values by 10,000 for scores on 0–1) |
 | 3 — Mining area simulation | Allocate demand spatially under a φ×β scenario sweep and convert to footprint area | Mining-area rasters (km²) across scenarios, β, and uncertainty levels |
 | 4 — Biodiversity assessment | Map vertebrate Area of Habitat, rarity-weighted richness, and overlay mining | Mining-biodiversity overlap (species-range equivalents) |
-| 9 — Figures | Generate all main, extended-data, and supplementary figures | Multi-panel maps and charts |
+| 9 — Figures | Generate the analytical main, extended-data, and supplementary figures; schematic exceptions are listed in Section 12 | Multi-panel maps and charts |
 
 **Spatial reference system used throughout:** Eckert IV equal-area projection (ESRI:54012). Primary analysis is at 1 km; outputs are aggregated to 2, 5, 10, 30, 50, and 100 km as needed, with **50 km** used for the mining-area and biodiversity-overlap layers.
 
@@ -147,7 +152,7 @@ The full sweep is 11 φ × 13 β = **143 combinations**. The spatial allocator w
 
 > **β_CON = 0.6** is the selected "knee" of the normalized cost-benefit frontier. It is derived in `Supplementary-Figure-22.ipynb` (the cheaper end of the tied β=0.6–0.7 knee) and set as `BETA_CON` in `Fig-4.ipynb`.
 
-> **Important.** CON is a **siting-weight lever, not an extra land-exclusion mask.** The base of mineable land (which excludes urban areas, water bodies, deserts, and all IUCN Ia–VI protected areas) is **identical across all four scenarios**. The difference between BAU and CON lies entirely in the β allocation score, not in which land is available.
+> **Important.** CON changes the **siting weight**. The mineable-land base is **identical across all four scenarios**: exclusions cover urban land, water, existing mining footprints, aeolian sand, IUCN Ia–VI protected areas, Antarctica, and cells outside the country mask. The same suitability threshold and reserve assumptions apply at a given uncertainty setting.
 
 **Three-dimensional uncertainty.** The signpost scenarios are evaluated across three uncertainty dimensions, each at low/central/high (L/M/H) levels:
 
@@ -155,7 +160,11 @@ The full sweep is 11 φ × 13 β = **143 combinations**. The spatial allocator w
 2. **R — aggregate reserve** (from lithology thickness/density/recovery parameters),
 3. **A — extraction-to-area relationship** (from the fitted power law).
 
-The **central case is D-M / R-M / A-M (often tagged `DM-RM`)**. The figure bounds use the **anti-diagonal** corners — lower bound `DL-RH-AL`, upper bound `DH-RL-AH` — reflecting the opposite role of reserve availability in the allocation. The full 3³ = 27-combination factorial is evaluated for sensitivity analysis at the signposts and for the individual demand-side scenarios at β=0. Spatial uncertainty ranges are scenario envelopes, not Monte Carlo confidence intervals.
+The **central case is `DM-RM-AM`**. Allocated-extraction filenames use `DM-RM`, because area uncertainty enters only when extraction is converted to footprint. The full 3³ = **27-combination factorial** is evaluated at the four signposts and for individual demand-side scenarios at β=0; the 143-point (φ, β) surface uses the central settings.
+
+Figure 1c,d uses the **minimum and maximum across all 27 combinations**, calculated separately for each biome or taxonomic group after summing its grid cells or Red List categories. Bars show the central `DM-RM-AM` outcome. Figure 1's global summary bounds are calculated from the 27 global totals, not by summing biome or taxon extrema. For example, the mangrove lower endpoint is **46.46700 km²** (`DL-RM-AL`); the fixed `DL-RH-AL` reference gives 47.89601 km² and is not that biome's minimum.
+
+Figure 2c,e also calculates ranges from the **minimum and maximum across all 27 combinations**. For reductions, BAU and the intervention are paired under the same D/R/A setting before finding the range. Some figure routines also read the designated **anti-diagonal** rasters (`DL-RH-AL` and `DH-RL-AH`); these agree with the global signpost overlap extrema in the checked results, but are not a general substitute for checking all combinations for regional totals or scenario differences. Spatial ranges are sensitivity envelopes, not Monte Carlo confidence intervals. The annual Figure 1a trajectories and cumulative Figure 2a statistics sum economy/material/year percentile summaries, as detailed in Section 8.
 
 ---
 
@@ -163,9 +172,11 @@ The **central case is D-M / R-M / A-M (often tagged `DM-RM`)**. The figure bound
 
 The analysis uses Python notebooks and helper scripts, with external geospatial tools for preprocessing. Key dependencies:
 
-- **Geospatial:** `rasterio`, `geopandas`, `shapely`, `fiona`, `pyproj`, `cartopy`
+- **Geospatial:** `rasterio`, `geopandas`, `shapely`, `fiona`, `pyproj`, `cartopy`, `affine`, and the GDAL Python bindings (`osgeo`)
 - **Scientific computing:** `numpy`, `scipy`, `pandas`, `scikit-learn`, `joblib`
-- **I/O & plotting:** `openpyxl`, `matplotlib`, `requests`, `tqdm`
+- **I/O & plotting:** `openpyxl`, `netCDF4`, `matplotlib`, `seaborn`, `cmocean`, `cmcrameri`, `adjustText`, `generativepy`, `Pillow`, `requests`, `tqdm`
+- **Final figure export:** `pypdf`; `PyMuPDF` is also required by `export_extended_data_schematics.py`
+- **Additional notebook imports:** `comtradeapicall` for trade acquisition; `xgboost` is imported by model-development notebooks although the final suitability model is a Random Forest
 - **Notebook execution:** `jupyter`, `nbformat`
 - **System tools (for OSM preprocessing):** `osmium-tool` and `GDAL`/`ogr2ogr`
 
@@ -173,11 +184,13 @@ A conda environment is recommended because several steps depend on native librar
 
 Before running, review each notebook's input/output paths and working-directory assumptions. Some scripts reference local drive locations outside the repository. Set these paths to the corresponding data and results directories on your system, and configure any data-provider API credentials. A version-pinned environment specification is not currently included.
 
+Most notebooks assume their **working directory is their numbered section folder**, with `Path.cwd().parent` as the repository root. In particular, the MFA engine and several compilation/plotting cells use a separate material-flow results directory, while spatial notebooks use the repository's `results/`. Configure both consistently, including `IMAGINE_Concrete.py`, `8-compile-results.ipynb`, `Fig-2.ipynb`, and `_regen_b06_factorial.py`; ensure downstream inputs such as `results/material-flows/results-from-IMAGINE-Concrete.xlsx` are available at the paths actually read. The OSM shell examples below use Bash on Linux/WSL, not PowerShell syntax.
+
 ---
 
 ## 5. Quarry data extraction from OpenStreetMap
 
-The quarry training dataset is built from an OpenStreetMap snapshot dated **2021-01-01**, chosen to align temporally with the other input layers (land cover, population, protected areas, all approximately year 2020). Using a fixed snapshot ensures full reproducibility.
+The quarry training dataset is built from an OpenStreetMap snapshot dated **2021-01-01**. Reproducing the quarry sample requires those archived extracts and the same filtering inputs. Input dates vary: population is based on 2020, while the protected-area notebook reads the **July 2024 WDPA** release.
 
 ### 5.1 Install osmium-tool
 
@@ -224,16 +237,26 @@ done
 ### 5.5 Merge into a single global file
 
 ```bash
-ogrmerge.py -f GPKG -o global-quarries-210101.gpkg -single -nln quarries *-quarries.gpkg
+mkdir -p data
+ogrmerge.py -f GPKG -o data/global-quarries-210101.gpkg -single -nln quarries *-quarries.gpkg
 ```
 
-The result, `data/global-quarries-210101.gpkg` (148,214 features), is the raw input to [Section 2](#9-section-2--mining-suitability-model). Notebook `2-mining-suitability-model/1-filter-aggregate-quarries.ipynb` then removes non-aggregate mines (intersecting the Maus et al. `global_mining_polygons_v2.gpkg`) to produce `data/global-aggregate-quarries-210101.gpkg` (136,666 aggregate quarries, 19,142 km²).
+Run this merge from the repository root, with the regional GeoPackages in that directory, or adjust the paths. The result, `data/global-quarries-210101.gpkg` (148,214 features in the study inputs), is the raw input to [Section 2](#9-section-2--mining-suitability-model). Notebook `2-mining-suitability-model/1-filter-aggregate-quarries.ipynb` excludes OSM polygons intersecting the Maus et al. `global_mining_polygons_v2.gpkg` inventory to produce `data/global-aggregate-quarries-210101.gpkg` (136,666 retained quarries, 19,142 km²).
 
 ---
 
 ## 6. Data acquisition
 
 The repository does not include the research inputs. Obtain the external datasets and the model-specific auxiliary/parameter files below, and place them at the paths expected by the relevant notebook. Third-party data may require registration or an access request. Provider links identify the sources; they do not supply the author-compiled parameter tables or replace the exact versions used in the analysis.
+
+**Study output archive.** The [Zenodo record](https://doi.org/10.5281/zenodo.23290764), checked on 11 October 2026, contains:
+
+- `global extraction.zip`: annual BAU and CE extraction for 142 economies, three materials, 2023–2050, retaining 10,000 draws (kt).
+- `mining area.zip` and `mining-biodiversity overlap.zip`: 50 km rasters for BAU, CE, CON and IAP, with 27 D/R/A combinations per scenario.
+- `rarity-weighted richness.zip`: 25 taxon/combined and threat-category RWR rasters at 50 km.
+- `figure data.zip`: eight figure-source GeoTIFFs, including the 1 km suitability raster and the building-stock map.
+
+These are selected outputs, not a complete input/environment bundle. In particular, the extraction archive contains BAU and CE only, so the individual-lever and intermediate-φ outputs must be generated separately. The numerical Source Data workbooks supplied with the manuscript are separate from this archive's listed files.
 
 ### 6.1 External datasets
 
@@ -243,7 +266,7 @@ The repository does not include the research inputs. Obtain the external dataset
 | International trade data | [UN Comtrade Database](https://comtradeplus.un.org/) | IMAGINE-Concrete |
 | Global population grid (current) | [WorldPop](https://hub.worldpop.org/doi/10.5258/SOTON/WP00647) | Data prep, stock projection |
 | Future population grids (SSP1–5) | [Wang et al. (2022)](https://doi.org/10.6084/m9.figshare.19608594.v3) | Data prep, stock projection |
-| Future GDP grids (SSP1–5) | SSP gridded GDP projections | Data prep, stock projection |
+| Historical and future GDP grids (SSP1–5; v7) | [Wang & Sun, global gridded GDP](https://doi.org/10.5281/zenodo.7898409) | Data prep, stock projection |
 | Building material stocks | [WSF3D Material Stock](https://download.geoservice.dlr.de/WSF3D_MATSTOCK/files/MaterialStockGlobal/) | Data prep, stock projection |
 | OpenStreetMap regional extracts | [Geofabrik](https://download.geofabrik.de/) | Mining suitability |
 | Maus et al. global mining polygons (v2) | [Maus et al.](https://doi.pangaea.de/10.1594/PANGAEA.942325) | Quarry filtering, ore-sand cap |
@@ -266,7 +289,7 @@ The repository does not include the research inputs. Obtain the external dataset
 | Trade gravity data | [CEPII Gravity (v202211)](https://www.cepii.fr/CEPII/en/bdd_modele/bdd_modele_item.asp?id=8) | Mining area simulation |
 | Natural Earth populated places | [Natural Earth](https://www.naturalearthdata.com/) | Figures (city markers) |
 
-### 6.2 Auxiliary / parameter files (small, model-specific)
+### 6.2 Model inputs and supporting spatial files
 
 These are read directly from `data/`:
 
@@ -284,6 +307,8 @@ These are read directly from `data/`:
 | `GLiM.tif` | Global Lithological Map raster |
 | `Gravity_csv_V202211/`, `GSDS30/`, `China-map/`, `simplified-world-map/`, `ne_10m_populated_places/` | CEPII gravity, desert/sand classes, China provincial map, world map, city points |
 
+The footprint calibration also requires **`results/extraction-area-relationship.csv`**, with 113 observations and columns `E (Mt)` and `A (ha)`. It is an input to the fitting notebook despite its location under `results/`; the notebook reads the table and does not reconstruct the original pit measurements. Generated prerequisites include `results/future-stock-growth.xlsx`, the compiled trade inputs, and the AOH catalogues used to build RWR. These paths should be checked before running dependent stages.
+
 ---
 
 ## 7. Section 0 — Data preparation
@@ -297,11 +322,11 @@ These notebooks establish the common geospatial framework: a global Eckert IV eq
 | `1-make-country-raster` | Rasterize GADM country boundaries (253 countries + Hong Kong + Macau = 255 units) | Country-ID rasters at 1, 2, 5, 10, 30, 50, 100 km |
 | `2-make-economy-raster` | Rasterize the 142 cement-reporting economies (parent–child country merges) | Economy-ID rasters at 1, 10, 50 km + `pseudo-codes-economies-142.csv` |
 | `3-make-protected-area-raster` | Rasterize 283,894 WDPA polygons (Jul 2024) by IUCN category | Merged + per-category masks (1 km) and 50 km aggregates |
-| `4-make-biome-raster` | Rasterize WWF TEOW 14-biome classification | Biome rasters at 1, 10, 50 km |
-| `4-make-biome-raster-2017` | Rasterize RESOLVE Ecoregions 2017 (847 ecoregions → 14 biomes) — the **primary** biome layer | `resolve-biome-raster-eck4-*` at 1, 2, 5, 10, 50 km |
+| `4-make-biome-raster` | Rasterize WWF TEOW 14-biome classification; **`Fig-1.ipynb` reads these layers** | `biome-raster-eck4-*` at 1, 10, 50 km |
+| `4-make-biome-raster-2017` | Rasterize alternative RESOLVE Ecoregions 2017 layers (847 ecoregions → 14 biomes) | `resolve-biome-raster-eck4-*` at 1, 2, 5, 10, 50 km |
 | `5-make-income-group-raster` | Rasterize World Bank income groups (L / LM / UM / H) | Income-group raster at 1 km |
 | `8-make-region-mask` | Define 15 biogeographic regions + USA/Canada/China state-province masks | `region-mask-*` (1/10/50 km) + `state-raster-eck4-1km` |
-| `9-reproject-GDP-data` | Reproject GDP-per-capita grids (2020 + 2025–2050 under SSP1–5) to Eckert IV | GDP rasters at 1 km |
+| `9-reproject-GDP-data` | Reproject total GDP per grid cell (2020 + 2025–2050 under SSP1–5), preserving sums; per-capita GDP is derived with population in the stock analysis | GDP rasters at 1 km |
 | `9-reproject-population-grids` | Reproject WorldPop 2020 + SSP1–5 future population to Eckert IV | Population rasters at 1, 10, 50 km |
 | `10-reproject-building-mineral-grid` | Reproject WSF3D building-material stock density (≈401 Gt global) | `features/building-mineral-stock-1km.tif` |
 
@@ -318,11 +343,13 @@ These notebooks establish the common geospatial framework: a global Eckert IV eq
 
 IMAGINE-Concrete is a global material-flow-analysis (MFA) model that projects extraction demand for construction aggregates (sand, gravel, limestone-for-cement) through 2050, driven by building-stock dynamics across **142 economies**. Uncertainty is propagated with **10,000 Monte Carlo simulations** over a historical period of **1931–2022** and a projection horizon of **2023–2050**.
 
+The production BAU/CE and lever scenarios use **SSP2**, the default `ssp` argument of `run_projection()`. The SSP1–5 stock trajectories in Supplementary Figure 7 are a separate comparison, not five socioeconomic pathways crossed with every φ/β combination.
+
 ### Core modules
 
 | File | Description |
 |------|-------------|
-| `IMAGINE_Concrete.py` | Core MFA engine. Key functions: `run_historical()` (1931–2022 baseline), `run_projection()` (2023–2050 per scenario, with CE-lever and φ-ambition parameterization), `fit_logistic_with_constraints()` (4-parameter logistic stock projection), `cal_dem_rate_conditional()` (age-cohort demolition rates). Tracks 3 building sectors (residential, non-residential, civil) and 4 concrete strength classes (C15, C16–23, C24–35, C35). |
+| `IMAGINE_Concrete.py` | Core MFA engine. Key functions: `run_historical()` (1931–2022 baseline), `run_projection()` (2023–2050 per scenario, with CE-lever and φ-ambition parameterization), `fit_logistic_with_constraints()` (4-parameter logistic stock projection), `cal_dem_rate_conditional()` (age-cohort demolition rates). Tracks 3 building sectors (residential, non-residential, civil) and 4 concrete strength classes (C15, C16–23, C24–35, C35+; the last uses `C35` in variable names). |
 | `run-wedge-scenarios.py` | Standalone, resumable CLI that generates the cumulative circular-economy "wedge" ladder (`wedge_MIU → wedge_LE → wedge_RE → wedge_RC → wedge_SS`) at n_sim = 10,000, pruning each output folder to the three extraction arrays for Supplementary Figures 8–10. Supports `--smoke`, `--n-jobs`, `--only`. |
 
 ### Notebooks
@@ -336,7 +363,7 @@ IMAGINE-Concrete is a global material-flow-analysis (MFA) model that projects ex
 | `5-estimate-oresand-supply-cap` | Estimate per-economy ore-sand (mine-tailings) supply ceilings → `data/oresand-supply-cap-142.csv` |
 | `6-run-simulations` | Run all 142 economies across the scenario set (joblib parallel); produce per-economy `.npz` flow archives |
 | `7-check-results` | Validation/QA — compare the 10,000-run results against an earlier 2,000-run baseline |
-| `8-compile-results` | Aggregate to global totals and export `results-from-IMAGINE-Concrete.xlsx` (extraction, in-use stock, outflows) |
+| `8-compile-results` | Export economy/year/material percentile summaries to `material-flows/results-from-IMAGINE-Concrete.xlsx` (extraction, in-use stock, outflows); summing these summaries does not produce global Monte Carlo percentiles |
 
 ### Demand-side circular-economy levers
 
@@ -357,12 +384,14 @@ Figure 2 compares **individual-lever scenarios** (`MIU`, `LE`, `RE`, `RC`, `SS`,
 
 | Material | BAU | CE | Reduction |
 |----------|-----|-----|-----------|
-| Sand | 207.3 Gt (203.0–212.0) | 160.6 Gt (157.5–163.9) | −22% |
-| Gravel | 145.6 Gt (141.2–150.3) | 118.1 Gt (114.7–121.6) | −19% |
-| Limestone (for cement) | 94.0 Gt (70.5–112.8) | 74.0 Gt (62.4–81.7) | −21% |
-| **Total** | **446.7 Gt (421.5–469.0)** | **352.7 Gt (339.3–363.7)** | **−21%** |
+| Sand | 207.3 Gt (190.5–224.7) | 160.6 Gt (147.5–174.2) | −22% |
+| Gravel | 145.6 Gt (130.2–161.7) | 118.1 Gt (105.6–131.0) | −19% |
+| Limestone (for cement) | 93.6 Gt (69.0–116.3) | 73.7 Gt (60.2–86.0) | −21% |
+| **Total** | **446.5 Gt (389.7–502.7)** | **352.4 Gt (313.3–391.2)** | −21% |
 
-Values are the medians and 2.5th–97.5th percentile intervals in `results/Data-for-Fig-2a.csv`, as checked on 10 October 2026. Figure 2 aggregates the Monte Carlo draws over economies and years (and materials for the total) **before** taking percentiles. Summing separately calculated medians or percentile endpoints does not give the same global statistics.
+Figure 1a and Figure 2a use the same economy-first reporting convention, restored on **11 October 2026**. For each economy, material and year, calculate the median and 2.5th/97.5th percentiles of 10,000 Monte Carlo outcomes, then sum matching percentile estimates across economies and materials. Figure 2a additionally sums across 2023–2050. For strategy reductions, calculate local percentiles of paired BAU-minus-strategy outcomes before summing. These aggregate ranges sum local percentile bounds; they are not 95% probability intervals of global totals.
+
+The cumulative BAU estimate is **446.4723 Gt (389.6975–502.7322)**, reported as **446 Gt (390–503)**. CE is **352.3941 Gt (313.3472–391.2463)**, reported as **352 Gt (313–391)**. Component reuse reduces extraction by **16.7320 Gt (14.5316–18.9248)**, reported as **17 Gt (15–19)**. `results/Data-for-Fig-2a.csv` contains the plotted summaries; `results/Data-for-Fig-2a-economy-summaries.csv` and the Figure 2a Source Data detail rows provide the economy/material components. The panel overlays gray points for the 10,000 draw-wise global Monte Carlo outcomes, saved in `results/Data-for-Fig-2a-draws.csv`. These points show the global draw distribution; the bars and error bars use the economy-first summaries described above, so the error bars are not calculated as percentiles of the gray points.
 
 ---
 
@@ -371,6 +400,8 @@ Values are the medians and 2.5th–97.5th percentile intervals in `results/Data-
 **Folder:** `2-mining-suitability-model/`
 
 A Random Forest classifier is trained on **136,666** globally distributed aggregate quarries to predict where future mining is likely to occur.
+
+The quarry count refers to **polygons**. Training uses their rasterized 1 km presence cells plus sampled pseudo-absences; polygon counts and training-sample counts are different quantities.
 
 ### Notebooks
 
@@ -409,12 +440,12 @@ A Random Forest classifier is trained on **136,666** globally distributed aggreg
 | Region | AUC | κ |
 |--------|-----|---|
 | Mean ± SD across 73 region/fold evaluations | 0.832 ± 0.085 | — |
-| North America (best) | 0.895 | 0.602 |
-| East Africa (weakest) | 0.748 | 0.347 |
+| North America (highest regional mean AUC) | 0.895 | 0.602 |
+| East Africa (lowest regional mean AUC) | 0.748 | 0.347 |
 
 **Outputs:** `results/trained-models/rf-global.pkl` (model) and `rf-global-features.pkl` (feature list); `results/global-mining-suitability-1km.tif` (global suitability raster); per-region CV metrics in `results/cv_results_per_region_global_model.csv` and `results/figure-data/`.
 
-The AUC summary above is the unweighted mean and sample standard deviation of the 73 rows in `cv_results_per_region_global_model.csv`, as checked on 10 October 2026; it is not a pooled global AUC. The training notebook also contains other validation configurations.
+The AUC summary above is the unweighted mean and sample standard deviation of the 73 rows in `cv_results_per_region_global_model.csv`, checked on 11 October 2026; it is not a pooled global AUC. Eastern Asia has three valid folds and each of the other 14 regions has five. The regional rows show fold means. The configuration table describes the final saved Random Forest; the training notebook also contains earlier validation configurations.
 
 ---
 
@@ -428,21 +459,23 @@ This section converts the extraction demands from Section 1, the suitability map
 
 | Notebook | Purpose |
 |----------|---------|
-| `1-downscale-extraction-demand` | Downscale national demand to 50 km cells using building-material stock density as proxy; produce L/M/H (2.5 / 50 / 97.5 percentile) rasters per material, scenario, and 5-year period |
+| `1-downscale-extraction-demand` | Split extraction into stock turnover and stock growth: distribute turnover by existing building stock and growth by positive SSP2 stock increments; write 50 km L/M/H demand rasters for 2023–2025 and then 5-year periods through 2050 |
 | `2-1-process-desert-map` | Reproject the GSDS30 sand/desert classification to 1 km; output fractional aeolian-sand coverage for exclusion |
-| `2-2-estimate-mineable-land` | Build the mineable-land base by categorical exclusion (urban, water, existing quarries, deserts, IUCN Ia–VI) and a single suitability threshold τ = empirical P50 of quarry suitability |
+| `2-2-estimate-mineable-land` | Apply fractional/categorical land exclusions and a single threshold τ = the **quarry-area-weighted P50** of observed-quarry suitability (0.8240 in the saved diagnostics) |
 | `3-fit-extraction-area-relationship` | Fit the power law A = 9.421·E^0.548 (n = 113 quarries; E in Mt, A in ha). The 95% confidence band of the fitted mean relationship is propagated into the footprint calculation; an individual-quarry prediction band is also examined as a diagnostic |
 | `4-estimate-aggregate-reserve` | Estimate per-cell reserve (Mt) = mineable area × lithology factor (thickness × density × recovery), at L/M/H levels |
 | `5-1-bilateral-trade-seed` | Build the observed bilateral trade seed matrix (2018–2022 average) to preserve real trade corridors |
 | `5-1-trade-gravity-matrix` | Calibrate country export/import propensities and the CEPII distance matrix used in allocation |
-| `5-2-map-extraction` | Unified spatial allocator — distribute global demand across cells using score = (1−β)·distance + β·rarity-weighted-richness, with two-stage trade; **writes `results/sweep-config.json`** |
+| `5-2-map-extraction` | Allocate to the lowest score = (1−β)·**normalized distance** + β·**normalized RWR**, with min–max normalization within candidate sets and two-stage trade; **writes `results/sweep-config.json`** |
 | `5-3-cost-analysis` | Convert domestic transport work (Mt·km) to monetary cost; quantify the conservation premium and CE demand-reduction benefit across all scenario×β combinations |
 | `6-estimate-mining-area` | Convert allocated extraction (Mt) into footprint area (km²) via the power law, distributing within 1 km sub-cells ranked by suitability×reserve; propagate D×R×A uncertainty |
 | `_regen_b06_factorial.py` | Helper that regenerates the β=0.6 (CON/IAP) cells of the 27-combination D×R×A factorial by re-executing the relevant pipeline functions |
 
 ### Mineable land (shared base)
 
-The mineable-land base is the **same for all scenarios** (see [Section 3 framework](#3-scenario-and-uncertainty-framework)). Excluded areas are urban land, water bodies, existing quarries, aeolian-sand deserts, and all IUCN Ia–VI protected areas. Of ~109 M km² of land, ~3.8 M km² (3.5%) clears both the exclusions and the empirical suitability threshold. The BAU↔CON contrast is produced by the **β allocation weight**, not by a different land mask.
+The mineable-land base is the **same for all scenarios** (see [Section 3 framework](#3-scenario-and-uncertainty-framework)). The exclusions leave approximately **109.46 million km² of available land**; applying the single quarry-area-weighted suitability threshold then retains approximately **3.82 million km² of mineable land** (3.5% of that available base). These are successive stages, not the total global land area. L/M/H reserve cases vary extractable thickness and recovery, not the land mask or threshold.
+
+Spatial demand L/M/H rasters sum economy/year percentile trajectories for stock turnover and growth. They are deterministic demand settings for the spatial sensitivity analysis, not the combined-extraction summaries in Figure 2a. The domestic allocator searches a square window extending three 50 km cells in each direction (ten for Indonesia and the Philippines); it ranks candidates by Euclidean distance/RWR within that window. Reachable-surplus screening separately uses a ten-cell distance limit before trade allocation. The footprint calculation applies the fitted relationship to 1 km sub-cell contributions before summing to 50 km; negative lower-band areas are clipped to zero at the sub-cell stage.
 
 **Outputs:** allocated-extraction and trade rasters/CSVs in `results/extraction-rasters/`; reserve and footprint rasters in `results/mining-area/`; the cost-analysis table `cost-analysis-DM-RM.csv`; and the canonical `results/sweep-config.json`.
 
@@ -485,23 +518,27 @@ The manuscript reports **29,327 terrestrial vertebrates** with a valid Area of H
 
 **Folder:** `9-draw-figures/`
 
-The publication figure notebooks in this directory use the outputs of Sections 1–4. `_verify.py` is a legacy helper that still references the absent `Fig-3-new.ipynb`; it is not a current validation of all figure notebooks. Run the relevant notebooks with their required inputs to regenerate the figures.
+The publication figure notebooks in this directory use the outputs of Sections 1–4. `_verify.py` is a legacy helper that still references the absent `Fig-3-new.ipynb`; it is not a current validation of all figure notebooks. Run the relevant notebooks with their required inputs to regenerate the analytical figures. **Extended Data Figures 1 and 4 and Supplementary Figure 15 are manuscript schematics without corresponding drawing notebooks in this repository.**
+
+The main-figure and analytical Extended Data notebooks use `final_figure_export.py` to export PDF, PNG and JPG files at a maximum width of 180 mm, with editable TrueType text in the PDF. For Extended Data Figures 1 and 4, run `python 9-draw-figures/export_extended_data_schematics.py` from the repository root; it reads the included PDFs in `source data/figure artwork/` and writes the final exports to `figures/` (or the directory specified by `--output-dir`).
 
 ### Main figures
 
 | Notebook | Content |
 |----------|---------|
-| `Fig-1` | BAU global overview — RWR and mining-footprint maps, with mining-biodiversity overlap by taxon and threat status |
+| `Fig-1` | BAU overview: (a) annual extraction, (b) mining footprint over RWR, (c) mining area by biome, (d) overlap by taxon/threat category, and (e) overlap map; panels c,d include 27 sensitivity outcomes |
 | `Fig-2` | Individual circular-economy measures and combined CE — reductions in extraction, mining area, and mining-biodiversity overlap relative to BAU |
-| `Fig-3` | Conservation siting (CON, β=0.6) vs BAU — overlap-change field, regional insets, and a waterfall decomposition of avoided vs transferred overlap |
+| `Fig-3` | Conservation siting (CON, β=0.6) vs BAU — conservation-priority/cost trade-offs, avoided-versus-transferred overlap, overlap-change map, and regional insets |
 | `Fig-4` | BAU / CE / CON / IAP comparison — overlap with 27-combination uncertainty, the ΔOverlap field over the (φ, β) plane, and global sub-additivity across the same 27 uncertainty combinations |
 
 ### Extended-Data figures
 
 | Notebook | Content |
 |----------|---------|
+| No notebook — Extended Data Figure 1 | Overall analytical framework schematic, including IMAGINE-Concrete |
 | `Extended-Data-Figure-2` | Building-material stock distribution and its stratification by population density and GDP |
 | `Extended-Data-Figure-3` | Global mining-suitability model output at 1 km |
+| No notebook — Extended Data Figure 4 | Demand allocation and mining-area estimation schematic |
 | `Extended-Data-Figure-5` | Four focal-region zoom-ins (RWR, BAU mining, CON mining, overlap-change) |
 
 ### Supplementary figures
@@ -518,6 +555,7 @@ The publication figure notebooks in this directory use the outputs of Sections 1
 | `Supplementary-Figure-12` | Suitability-model per-region performance (AUC, F1, κ) |
 | `Supplementary-Figure-13` | Suitability-model robustness to EU+NA subsampling |
 | `Supplementary-Figure-14` | Extraction-to-area power-law fit |
+| No notebook — Supplementary Figure 15 | Species Area of Habitat workflow schematic, included in the final SI |
 | `Supplementary-Figure-16` … `-20` | RWR maps for all vertebrates, mammals, birds, amphibians, reptiles (each: total + CR/EN/VU/NT) |
 | `Supplementary-Figure-21` | International aggregate trade 2023–2050 (BAU) — balances, top traders, bilateral matrix |
 | `Supplementary-Figure-22` | Derivation of the conservation-priority knee β_CON = 0.6 |
@@ -527,18 +565,18 @@ The publication figure notebooks in this directory use the outputs of Sections 1
 
 ## 13. Key results summary
 
-The headline metric is **mining-biodiversity overlap** in species-range equivalents. Extraction intervals are Monte Carlo percentiles (see Section 8); footprint and overlap ranges use the anti-diagonal spatial uncertainty combinations (see Section 3). Values are rounded from the current Figure 2 tables and the central/bounds signpost tables in `results/biodiversity-risk/`, checked on 10 October 2026.
+The headline metric is **mining-biodiversity overlap** in species-range equivalents. Extraction ranges sum economy/material/year percentile estimates (see Section 8); footprint and overlap ranges follow the spatial sensitivity calculations described in Section 3. Values are rounded from the Figure 2 tables and signpost tables in `results/biodiversity-risk/`, rechecked on **11 October 2026**. Percentage reductions use unrounded central values, so they need not equal percentages calculated from the displayed rounded overlap values.
 
 | Indicator | Value |
 |-----------|-------|
 | Aggregate quarries identified (global, 2021) | 136,666 features, 19,142 km² |
 | Quarry distribution | Europe 65,097, N. America 23,992, Asia 22,146, Africa 13,998, S. America 8,778, Oceania 1,809, C. America 846 |
-| Cumulative aggregate extraction 2023–2050 (BAU) | 446.7 Gt (421.5–469.0) |
-| — sand / gravel / limestone | 207.3 / 145.6 / 94.0 Gt |
-| Cumulative extraction (CE) | 352.7 Gt (339.3–363.7), −21% vs BAU |
-| Mining footprint disturbed by 2050 (BAU) | ~10,143 km² (7,077–16,306) |
-| Mining footprint (CE) | 8,441 km² (5,973–13,288), −17% vs BAU |
-| **Total mining-biodiversity overlap (BAU)** | **2.6 species-range equivalents (1.9–4.5)** |
+| Cumulative aggregate extraction 2023–2050 (BAU) | 446.5 Gt (389.7–502.7) |
+| — sand / gravel / limestone | 207.3 / 145.6 / 93.6 Gt |
+| Cumulative extraction (CE) | 352.4 Gt (313.3–391.2), −21% vs BAU |
+| Additional mining footprint, 2023–2050 (BAU) | ~10,160 km² (7,089–16,336) |
+| Mining footprint (CE) | 8,455 km² (5,984–13,307), −17% vs BAU |
+| **Total mining-biodiversity overlap (BAU)** | **2.6 species-range equivalents (1.9–4.6)** |
 | Overlap (CE) | 2.3 (1.7–3.7), −14% vs BAU |
 | Overlap (CON) | 1.3 (0.9–2.3), ~−50% vs BAU |
 | **Overlap (IAP)** | **1.1 (0.8–1.9), −58% vs BAU** |
@@ -551,7 +589,7 @@ The headline metric is **mining-biodiversity overlap** in species-range equivale
 
 If you use this code or data, please cite:
 
-> Wu, T., Cao, Z., Torres, A., et al. (2026). *Future biodiversity risks of construction aggregate mining.*
+> Wu, T., Cao, Z., Torres, A., et al. (2026). *Future biodiversity risks of land-sourced aggregate mining.*
 
 Journal and DOI information will be added once confirmed.
 
