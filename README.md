@@ -6,7 +6,7 @@ This repository contains analysis code for projecting global construction aggreg
 
 **Study scope.** Extraction estimates cover aggregates embodied in **concrete and mortar**, including limestone used for cement. They do not represent all construction-mineral extraction (for example, unbound road aggregates and non-cement limestone uses are outside the model boundary). The main scenario analysis uses **SSP2**; SSP1–5 stock projections provide the broader socioeconomic context. Mining footprints represent **additional disturbance during 2023–2050**, and mining-biodiversity overlap measures potential terrestrial exposure, not observed species losses.
 
-**Headline finding.** Under business-as-usual, projected construction aggregate extraction between 2023 and 2050 is approximately **446 Gt**, with a mining footprint of **~10,160 km²** and a total **mining-biodiversity overlap of ~2.6 species-range equivalents**. Combining an ambitious circular economy with conservation-aware siting reduces that overlap by **about 58%**. Numerical summaries and their output sources are given below.
+**Headline finding.** Under business-as-usual, projected construction aggregate extraction between 2023 and 2050 is approximately **446 Gt**, with a mining footprint of **~10,204 km²** and a total **mining-biodiversity overlap of ~2.6 species-range equivalents**. Combining an ambitious circular economy with conservation-aware siting reduces that overlap by **about 64%**. Numerical summaries and their output sources are given below.
 
 ---
 
@@ -78,7 +78,7 @@ aggregate-mining-biodiversity/
 │   ├── 5-2-map-extraction.ipynb
 │   ├── 5-3-cost-analysis.ipynb
 │   ├── 6-estimate-mining-area.ipynb
-│   └── _regen_b06_factorial.py         ← regenerate β=0.6 (CON/IAP) uncertainty factorial
+│   └── _regen_con_iap_factorial.py         ← regenerate β=0.7 (CON/IAP) uncertainty factorial
 │
 ├── 4-biodiversity-risk-assessment/ # Species ranges, Area of Habitat, overlap
 │   ├── 1-make-range-raster-for-amphibians.ipynb
@@ -146,10 +146,10 @@ The full sweep is 11 φ × 13 β = **143 combinations**. The spatial allocator w
 |----------|--------|---------|
 | **BAU** | (0, 0) | Business-as-usual demand, least-cost siting |
 | **CE** | (1, 0) | Full circular economy, least-cost siting |
-| **CON** | (0, 0.6) | BAU demand, conservation-aware siting at the cost-benefit "knee" |
-| **IAP** | (1, 0.6) | Integrated Action Portfolio — full CE **and** conservation siting |
+| **CON** | (0, 0.7) | BAU demand, conservation-aware siting at the cost-benefit "knee" |
+| **IAP** | (1, 0.7) | Integrated Action Portfolio — full CE **and** conservation siting |
 
-> **β_CON = 0.6** is the selected "knee" of the normalized cost-benefit frontier. It is derived in `Supplementary-Figure-22.ipynb` (the cheaper end of the tied β=0.6–0.7 knee) and set as `BETA_CON` in `Fig-4.ipynb`.
+> **β_CON = 0.7** is the selected "knee" of the normalized cost-benefit frontier. It is derived in `Supplementary-Figure-22.ipynb` (the maximum normalized net benefit after bounding spatial turnover shares; candidates within 0.001 are tied, with the lower β selected) and set as `BETA_CON` in `Fig-4.ipynb`.
 
 > **Important.** CON changes the **siting weight**. The mineable-land base is **identical across all four scenarios**: exclusions cover urban land, water, existing mining footprints, aeolian sand, IUCN Ia–VI protected areas, Antarctica, and cells outside the country mask. The same suitability threshold and reserve assumptions apply at a given uncertainty setting.
 
@@ -161,7 +161,7 @@ The full sweep is 11 φ × 13 β = **143 combinations**. The spatial allocator w
 
 The **central case is `DM-RM-AM`**. Allocated-extraction filenames use `DM-RM`, because area uncertainty enters only when extraction is converted to footprint. The full 3³ = **27-combination factorial** is evaluated at the four signposts and for individual demand-side scenarios at β=0; the 143-point (φ, β) surface uses the central settings.
 
-Figure 1c,d uses the **minimum and maximum across all 27 combinations**, calculated separately for each biome or taxonomic group after summing its grid cells or Red List categories. Bars show the central `DM-RM-AM` outcome. Figure 1's global summary bounds are calculated from the 27 global totals, not by summing biome or taxon extrema. For example, the mangrove lower endpoint is **46.46700 km²** (`DL-RM-AL`); the fixed `DL-RH-AL` reference gives 47.89601 km² and is not that biome's minimum.
+Figure 1c,d uses the **minimum and maximum across all 27 combinations**, calculated separately for each biome or taxonomic group after summing its grid cells or Red List categories. Bars show the central `DM-RM-AM` outcome. Figure 1's global summary bounds are calculated from the 27 global totals, not by summing biome or taxon extrema. Regional extrema are checked independently for each refreshed result rather than inferred from a fixed pair of combinations.
 
 Figure 2c,e also calculates ranges from the **minimum and maximum across all 27 combinations**. For reductions, BAU and the intervention are paired under the same D/R/A setting before finding the range. Some figure routines also read the designated **anti-diagonal** rasters (`DL-RH-AL` and `DH-RL-AH`); these agree with the global signpost overlap extrema in the checked results, but are not a general substitute for checking all combinations for regional totals or scenario differences. Spatial ranges are sensitivity envelopes, not Monte Carlo confidence intervals. The annual Figure 1a trajectories and cumulative Figure 2a statistics sum economy/material/year percentile summaries, as detailed in Section 8.
 
@@ -183,7 +183,7 @@ A conda environment is recommended because several steps depend on native librar
 
 Before running, review each notebook's input/output paths and working-directory assumptions. Some scripts reference local drive locations outside the repository. Set these paths to the corresponding data and results directories on your system, and configure any data-provider API credentials. A version-pinned environment specification is not currently included.
 
-Most notebooks assume their **working directory is their numbered section folder**, with `Path.cwd().parent` as the repository root. In particular, the MFA engine and several compilation/plotting cells use a separate material-flow results directory, while spatial notebooks use the repository's `results/`. Configure both consistently, including `IMAGINE_Concrete.py`, `8-compile-results.ipynb`, `Fig-2.ipynb`, and `_regen_b06_factorial.py`; ensure downstream inputs such as `results/material-flows/results-from-IMAGINE-Concrete.xlsx` are available at the paths actually read. The OSM shell examples below use Bash on Linux/WSL, not PowerShell syntax.
+Most notebooks assume their **working directory is their numbered section folder**, with `Path.cwd().parent` as the repository root. In particular, the MFA engine and several compilation/plotting cells use a separate material-flow results directory, while spatial notebooks use the repository's `results/`. Configure both consistently, including `IMAGINE_Concrete.py`, `8-compile-results.ipynb`, `Fig-2.ipynb`, and `_regen_con_iap_factorial.py`; ensure downstream inputs such as `results/material-flows/results-from-IMAGINE-Concrete.xlsx` are available at the paths actually read. The OSM shell examples below use Bash on Linux/WSL, not PowerShell syntax.
 
 ---
 
@@ -468,13 +468,13 @@ This section converts the extraction demands from Section 1, the suitability map
 | `5-2-map-extraction` | Allocate to the lowest score = (1−β)·**normalized distance** + β·**normalized RWR**, with min–max normalization within candidate sets and two-stage trade; **writes `results/sweep-config.json`** |
 | `5-3-cost-analysis` | Convert domestic transport work (Mt·km) to monetary cost; quantify the conservation premium and CE demand-reduction benefit across all scenario×β combinations |
 | `6-estimate-mining-area` | Convert allocated extraction (Mt) into footprint area (km²) via the power law, distributing within 1 km sub-cells ranked by suitability×reserve; propagate D×R×A uncertainty |
-| `_regen_b06_factorial.py` | Helper that regenerates the β=0.6 (CON/IAP) cells of the 27-combination D×R×A factorial by re-executing the relevant pipeline functions |
+| `_regen_con_iap_factorial.py` | Helper that regenerates the β=0.7 (CON/IAP) cells of the 27-combination D×R×A factorial by re-executing the relevant pipeline functions |
 
 ### Mineable land (shared base)
 
 The mineable-land base is the **same for all scenarios** (see [Section 3 framework](#3-scenario-and-uncertainty-framework)). The exclusions leave approximately **109.46 million km² of available land**; applying the single quarry-area-weighted suitability threshold then retains approximately **3.82 million km² of mineable land** (3.5% of that available base). These are successive stages, not the total global land area. L/M/H reserve cases vary extractable thickness and recovery, not the land mask or threshold.
 
-Spatial demand L/M/H rasters sum economy/year percentile trajectories for stock turnover and growth. They are deterministic demand settings for the spatial sensitivity analysis, not the combined-extraction summaries in Figure 2a. The domestic allocator searches a square window extending three 50 km cells in each direction (ten for Indonesia and the Philippines); it ranks candidates by Euclidean distance/RWR within that window. Reachable-surplus screening separately uses a ten-cell distance limit before trade allocation. The footprint calculation applies the fitted relationship to 1 km sub-cell contributions before summing to 50 km; negative lower-band areas are clipped to zero at the sub-cell stage.
+Before spatial allocation, the material-specific outflow-to-inflow ratio is bounded to [0, 1] for each economy, year and Monte Carlo draw. Turnover demand is the bounded share times total extraction; growth is the remaining share. A ratio above one gives zero growth demand, and zero extraction gives zero in both components. This preserves each draw’s total extraction while preventing negative spatial demand. L/M/H rasters then sum the corresponding 2.5th/50th/97.5th percentile summaries of the turnover and growth components across years and economies. They are deterministic demand settings for the spatial sensitivity analysis, not the combined-extraction summaries in Figure 2a. The domestic allocator searches a square window extending three 50 km cells in each direction (ten for Indonesia and the Philippines); it ranks candidates by Euclidean distance/RWR within that window. Reachable-surplus screening separately uses a ten-cell distance limit before trade allocation. The footprint calculation applies the fitted relationship to 1 km sub-cell contributions before summing to 50 km; negative lower-band areas are clipped to zero at the sub-cell stage.
 
 **Outputs:** allocated-extraction and trade rasters/CSVs in `results/extraction-rasters/`; reserve and footprint rasters in `results/mining-area/`; the cost-analysis table `cost-analysis-DM-RM.csv`; and the canonical `results/sweep-config.json`.
 
@@ -527,7 +527,7 @@ The main-figure and analytical Extended Data notebooks use `final_figure_export.
 |----------|---------|
 | `Fig-1` | BAU overview: (a) annual extraction, (b) mining footprint over RWR, (c) mining area by biome, (d) overlap by taxon/threat category, and (e) overlap map; panels c,d include 27 sensitivity outcomes |
 | `Fig-2` | Individual circular-economy measures and combined CE — reductions in extraction, mining area, and mining-biodiversity overlap relative to BAU |
-| `Fig-3` | Conservation siting (CON, β=0.6) vs BAU — conservation-priority/cost trade-offs, avoided-versus-transferred overlap, overlap-change map, and regional insets |
+| `Fig-3` | Conservation siting (CON, β=0.7) vs BAU — conservation-priority/cost trade-offs, avoided-versus-transferred overlap, overlap-change map, and regional insets |
 | `Fig-4` | BAU / CE / CON / IAP comparison — overlap with 27-combination uncertainty, the ΔOverlap field over the (φ, β) plane, and global sub-additivity across the same 27 uncertainty combinations |
 
 ### Extended-Data figures
@@ -557,7 +557,7 @@ The main-figure and analytical Extended Data notebooks use `final_figure_export.
 | No notebook — Supplementary Figure 15 | Species Area of Habitat workflow schematic, included in the final SI |
 | `Supplementary-Figure-16` … `-20` | RWR maps for all vertebrates, mammals, birds, amphibians, reptiles (each: total + CR/EN/VU/NT) |
 | `Supplementary-Figure-21` | International aggregate trade 2023–2050 (BAU) — balances, top traders, bilateral matrix |
-| `Supplementary-Figure-22` | Derivation of the conservation-priority knee β_CON = 0.6 |
+| `Supplementary-Figure-22` | Derivation of the conservation-priority knee β_CON = 0.7 |
 | `Supplementary-Figure-23` | Per-country mining-biodiversity-overlap waterfalls (BAU → CON) |
 
 ---

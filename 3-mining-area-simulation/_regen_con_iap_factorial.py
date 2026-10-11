@@ -1,4 +1,4 @@
-"""Regenerate the β0.6 27-combo (D,R,A) factorial for CON (BAU·β0.6) and IAP (CE·β0.6),
+"""Regenerate the β0.7 27-combo (D,R,A) factorial for CON (BAU·β0.7) and IAP (CE·β0.7),
 reusing the EXACT pipeline functions by exec-ing only the setup cells of:
   3-mining-area-simulation/5-2-map-extraction.ipynb        (cells <=7: allocate_demand_to_extraction)
   3-mining-area-simulation/6-estimate-mining-area.ipynb    (cells <=7: estimate_mining_area)
@@ -6,17 +6,17 @@ reusing the EXACT pipeline functions by exec-ing only the setup cells of:
 The loop/usage cells (which run the full sweep) are NOT exec-ed.
 
 Phases (only the MISSING combos are generated; existing central+anti-diagonal reused):
-  A  12 allocations  : BAU,CE × β0.6 × 6 missing (D,R)
-  B  48 footprints   : BAU,CE × β0.6 × 24 missing (D,R,A)   [joblib]
-  C  54 overlaps     : BAU(→CON),CE(→IAP) × β0.6 × all 27 (D,R,A) → global sums + factorial CSV
+  A  12 allocations  : BAU,CE × β0.7 × 6 missing (D,R)
+  B  48 footprints   : BAU,CE × β0.7 × 24 missing (D,R,A)   [joblib]
+  C  54 overlaps     : BAU(→CON),CE(→IAP) × β0.7 × all 27 (D,R,A) → global sums + factorial CSV
 
-Usage:  python _regen_b06_factorial.py test   # 1 combo per phase, timed
-        python _regen_b06_factorial.py full   # the whole thing
+Usage:  python _regen_con_iap_factorial.py test   # 1 combo per phase, timed
+        python _regen_con_iap_factorial.py full   # the whole thing
 """
 import os, sys, json, time
 from pathlib import Path
 
-REPO = Path(r'D:/wty/Documents/GitHub/aggregate-mining-biodiversity')
+REPO = Path(__file__).resolve().parents[1]
 os.chdir(REPO / '3-mining-area-simulation')          # so each notebook's Path.cwd().parent == REPO
 MODE = sys.argv[1] if len(sys.argv) > 1 else 'full'
 
@@ -50,7 +50,7 @@ FOOT_MISSING_DRA  = [(d, r, a) for d in LEVELS for r in LEVELS for a in LEVELS
                      if (d, r, a) not in EXISTING_DRA]                                               # 24
 ALL_DRA           = [(d, r, a) for d in LEVELS for r in LEVELS for a in LEVELS]                      # 27
 SCENS = ['BAU', 'CE']
-BETA  = 0.6
+BETA  = 0.7
 N_JOBS = 8
 
 # preloaded shared inputs for the footprint step (mirrors nb6 cell 13)
@@ -104,8 +104,8 @@ for scen, label in SCENS_C:
                              'area': a, 'overlap': float(np.sum(overlap))})
 fac = pd.DataFrame(recs)
 out_csv = RESULTS / 'biodiversity-risk' / (
-    'biodiversity-risk-summary-B0.6-signposts-DRA-factorial.csv' if MODE != 'test'
-    else '_TEST-b06-factorial.csv')
+    'biodiversity-risk-summary-B0.7-signposts-DRA-factorial.csv' if MODE != 'test'
+    else '_TEST-con-iap-factorial.csv')
 fac.to_csv(out_csv, index=False)
 print(f'[C] done in {time.time()-tC:.1f}s | wrote {out_csv} ({len(fac)} rows)', flush=True)
 print(fac.round(3).to_string(index=False), flush=True)
