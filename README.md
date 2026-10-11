@@ -24,8 +24,7 @@ This repository contains analysis code for projecting global construction aggreg
 10. [Section 3 — Mining area simulation](#10-section-3--mining-area-simulation)
 11. [Section 4 — Biodiversity risk assessment](#11-section-4--biodiversity-risk-assessment)
 12. [Section 9 — Figures](#12-section-9--figures)
-13. [Key results summary](#13-key-results-summary)
-14. [Citation](#14-citation)
+13. [Citation](#13-citation)
 
 ---
 
@@ -563,34 +562,8 @@ The main-figure and analytical Extended Data notebooks use `final_figure_export.
 
 ---
 
-## 13. Key results summary
-
-The headline metric is **mining-biodiversity overlap** in species-range equivalents. Extraction ranges sum economy/material/year percentile estimates (see Section 8); footprint and overlap ranges follow the spatial sensitivity calculations described in Section 3. Values are rounded from the Figure 2 tables and signpost tables in `results/biodiversity-risk/`, rechecked on **11 October 2026**. Percentage reductions use unrounded central values, so they need not equal percentages calculated from the displayed rounded overlap values.
-
-| Indicator | Value |
-|-----------|-------|
-| Aggregate quarries identified (global, 2021) | 136,666 features, 19,142 km² |
-| Quarry distribution | Europe 65,097, N. America 23,992, Asia 22,146, Africa 13,998, S. America 8,778, Oceania 1,809, C. America 846 |
-| Cumulative aggregate extraction 2023–2050 (BAU) | 446.5 Gt (389.7–502.7) |
-| — sand / gravel / limestone | 207.3 / 145.6 / 93.6 Gt |
-| Cumulative extraction (CE) | 352.4 Gt (313.3–391.2), −21% vs BAU |
-| Additional mining footprint, 2023–2050 (BAU) | ~10,160 km² (7,089–16,336) |
-| Mining footprint (CE) | 8,455 km² (5,984–13,307), −17% vs BAU |
-| **Total mining-biodiversity overlap (BAU)** | **2.6 species-range equivalents (1.9–4.6)** |
-| Overlap (CE) | 2.3 (1.7–3.7), −14% vs BAU |
-| Overlap (CON) | 1.3 (0.9–2.3), ~−50% vs BAU |
-| **Overlap (IAP)** | **1.1 (0.8–1.9), −58% vs BAU** |
-| Suitability-model AUC (mean ± SD over 73 region/fold rows) | 0.832 ± 0.085 |
-| Vertebrate species assessed (with AOH; manuscript count) | 29,327 |
-
----
-
-## 14. Citation
+## 13. Citation
 
 If you use this code or data, please cite:
 
 > Wu, T., Cao, Z., Torres, A., et al. (2026). *Future biodiversity risks of land-sourced aggregate mining.*
-
-Journal and DOI information will be added once confirmed.
-
-For questions or issues, please open a GitHub issue in this repository.
