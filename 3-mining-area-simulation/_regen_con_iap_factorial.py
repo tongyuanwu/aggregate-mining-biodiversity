@@ -5,9 +5,9 @@ reusing the EXACT pipeline functions by exec-ing only the setup cells of:
   4-biodiversity-risk-assessment/6-biodiversity-risk-assessment.ipynb (cells <=3: assess_biodiversity_risk)
 The loop/usage cells (which run the full sweep) are NOT exec-ed.
 
-Phases (only the MISSING combos are generated; existing central+anti-diagonal reused):
-  A  12 allocations  : BAU,CE × β0.7 × 6 missing (D,R)
-  B  48 footprints   : BAU,CE × β0.7 × 24 missing (D,R,A)   [joblib]
+Phases (all combinations are regenerated consistently):
+  A  54 allocations : BAU,CE × β0.7 × 27 (D,R,A)
+  B  54 footprints  : BAU,CE × β0.7 × 27 (D,R,A) [joblib]
   C  54 overlaps     : BAU(→CON),CE(→IAP) × β0.7 × all 27 (D,R,A) → global sums + factorial CSV
 
 Usage:  python _regen_con_iap_factorial.py test   # 1 combo per phase, timed
@@ -43,12 +43,9 @@ assert all(k in globals() for k in
 print(f'[setup] done in {time.time()-t0:.1f}s | RESULTS={RESULTS}', flush=True)
 
 LEVELS = ['L', 'M', 'H']
-EXISTING_DR  = {('M', 'M'), ('L', 'H'), ('H', 'L')}                  # central + anti-diagonal corners
-EXISTING_DRA = {('M', 'M', 'M'), ('L', 'H', 'L'), ('H', 'L', 'H')}
-ALLOC_MISSING_DR  = [(d, r) for d in LEVELS for r in LEVELS if (d, r) not in EXISTING_DR]            # 6
-FOOT_MISSING_DRA  = [(d, r, a) for d in LEVELS for r in LEVELS for a in LEVELS
-                     if (d, r, a) not in EXISTING_DRA]                                               # 24
-ALL_DRA           = [(d, r, a) for d in LEVELS for r in LEVELS for a in LEVELS]                      # 27
+ALL_DRA = [(d, r, a) for d in LEVELS for r in LEVELS for a in LEVELS]
+FOOT_MISSING_DRA = ALL_DRA
+ALLOC_MISSING_DRA = ALL_DRA
 SCENS = ['BAU', 'CE']
 BETA  = 0.7
 N_JOBS = 8
@@ -60,7 +57,7 @@ cap_by_reserve = {lvl: rio.open(RESULTS / 'mining-area' / f'aggregate-reserve-1k
                   for lvl in LEVELS}
 
 if MODE == 'test':
-    ALLOC_MISSING_DR = [('M', 'H')]
+    ALLOC_MISSING_DRA = [('M', 'H', 'M')]
     FOOT_MISSING_DRA = [('M', 'H', 'M')]
     ALL_DRA          = [('M', 'H', 'M')]
     SCENS_C          = [('BAU', 'CON')]
@@ -70,12 +67,12 @@ else:
 
 # ---------------- Phase A: allocations ----------------
 tA = time.time()
-print(f'\n[A] allocations: {len(SCENS)*len(ALLOC_MISSING_DR)} combos', flush=True)
+print(f'\n[A] allocations: {len(SCENS)*len(ALLOC_MISSING_DRA)} combos', flush=True)
 for scen in SCENS:
-    for d, r in ALLOC_MISSING_DR:
+    for d, r, a in ALLOC_MISSING_DRA:
         ts = time.time()
-        allocate_demand_to_extraction(scen, d, r, beta=BETA, max_r=3, max_r_surplus=10)
-        print(f'[A] {scen} B{BETA} D{d}-R{r}  ({time.time()-ts:.1f}s)', flush=True)
+        allocate_demand_to_extraction(scen, d, r, beta=BETA, max_r=3, max_r_surplus=10, area_level=a)
+        print(f'[A] {scen} B{BETA} D{d}-R{r}-A{a}  ({time.time()-ts:.1f}s)', flush=True)
 print(f'[A] done in {time.time()-tA:.1f}s', flush=True)
 
 # ---------------- Phase B: footprints (joblib) ----------------

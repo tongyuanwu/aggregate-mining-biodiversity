@@ -93,13 +93,13 @@ class NonnegativeAreaTests(unittest.TestCase):
         )
         cap = np.zeros((50, 50), dtype=np.float32)
         cap[0, :2] = [1, 0.0001]
-        fit = (1, 1, (1, 1), np.diag([0, 0.01]), 100)
+        fit = (100, 1, (100, 1), np.diag([0, 0.01]), 100)
         with tempfile.TemporaryDirectory() as folder:
             estimate("BAU", 0, area_level="L", suit_1km=np.ones_like(cap),
                      cap_1km=cap, fit=fit, output_dir=folder)
         # The small sub-cell contributes zero. Flooring only the final cell sum
         # would still let its negative lower estimate reduce this positive area.
-        np.testing.assert_array_equal(io.written, np.array([[0.01]], dtype=np.float32))
+        np.testing.assert_allclose(io.written, [[1.0]], rtol=0, atol=1e-12)
 
     def test_invalid_area_is_rejected_before_writing(self):
         io = RasterIO(np.array([[1]], dtype=np.float32))
