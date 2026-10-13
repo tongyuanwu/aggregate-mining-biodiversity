@@ -14,6 +14,58 @@ DATA = ROOT / "data"
 RESULTS = Path(r"F:\aggregates-mining-biodiversity\results")
 
 # ============ Tool functions ============
+def calculate_inventory(net_requirement):
+    """Return production, closing stock and withdrawals for each draw/year.
+
+    Rows are independent simulations and columns are consecutive years. Stocks
+    start at zero and do not expire. Negative net requirements are deposits;
+    positive requirements are met from existing stock before new production.
+    """
+    net = np.asarray(net_requirement, dtype=np.float64)
+    if net.ndim != 2:
+        raise ValueError('net_requirement must have shape (simulations, years)')
+
+    cumulative_net = np.cumsum(net, axis=1)
+    cumulative_production = np.maximum.accumulate(
+        np.maximum(cumulative_net, 0), axis=1)
+    demand = np.maximum(net, 0)
+    # Bound withdrawals against floating-point cancellation in the difference.
+    production = np.minimum(
+        np.diff(cumulative_production, axis=1, prepend=0.0), demand)
+    closing_stock = cumulative_production - cumulative_net
+    consumed_stock = demand - production
+    return production, closing_stock, consumed_stock
+
+
+def calculate_clinker_inventory(net_requirement):
+    """Return production, closing stock and withdrawals with three-year FIFO.
+
+    Stock is usable in its deposit year and the next two years. Each year has
+    either a net deposit or a net demand, as determined by net_requirement.
+    This exclusivity permits year slices instead of a chronological loop.
+    """
+    net = np.asarray(net_requirement, dtype=np.float64)
+    if net.ndim != 2:
+        raise ValueError('net_requirement must have shape (simulations, years)')
+    deposits = np.maximum(-net, 0)
+    demand = np.maximum(net, 0)
+
+    def lag(values, years):
+        shifted = np.zeros_like(values)
+        shifted[:, years:] = values[:, :-years]
+        return shifted
+
+    # Last year's demand first consumed the older (now expired) batch. Only
+    # the remainder of that demand could consume the two-year-old batch.
+    two_year_old_remaining = np.maximum(
+        lag(deposits, 2) - np.maximum(lag(demand, 1) - lag(deposits, 3), 0), 0)
+    available_stock = deposits + lag(deposits, 1) + two_year_old_remaining
+    consumed_stock = np.minimum(demand, available_stock)
+    closing_stock = available_stock - consumed_stock
+    production = demand - consumed_stock
+    return production, closing_stock, consumed_stock
+
+
 def make_constant_values(df, n_sim):
     values = np.array(df).astype(np.float32)  # shape (years,)
     return np.tile(values, (n_sim, 1))
@@ -465,7 +517,6 @@ def run_historical(
             S_coarse_for_concrete_app += S_coarse_for_concrete_app_strength
             S_water_for_concrete_app  += S_water_for_concrete_app_strength
             
-            O_binder_for_concrete_app += O_binder_for_concrete_app_strength
             O_fine_for_concrete_app   += O_fine_for_concrete_app_strength
             O_coarse_for_concrete_app += O_coarse_for_concrete_app_strength
             O_water_for_concrete_app  += O_water_for_concrete_app_strength
@@ -786,17 +837,8 @@ def run_historical(
     gravel_production_ = coarse_total + gravel_export - gravel_import
     excess_sand = np.where(sand_production_ < 0, -sand_production_, 0)
     excess_gravel = np.where(gravel_production_ < 0, -gravel_production_, 0)
-    sand_stock = excess_sand.cumsum(axis=1)
-    gravel_stock = excess_gravel.cumsum(axis=1)
-
-    consumed_sand_stock = np.where((sand_stock > 0) & (sand_production_ > 0), np.where(sand_production_ <= sand_stock, sand_production_, sand_stock), 0)
-    consumed_gravel_stock = np.where((gravel_stock > 0) & (gravel_production_ > 0), np.where(gravel_production_ <= gravel_stock, gravel_production_, gravel_stock), 0)
-
-    sand_stock = sand_stock - consumed_sand_stock
-    gravel_stock = gravel_stock - consumed_gravel_stock
-
-    sand_production = np.where(sand_production_ >= consumed_sand_stock, sand_production_ - consumed_sand_stock, 0)
-    gravel_production = np.where(gravel_production_ >= consumed_gravel_stock, gravel_production_ - consumed_gravel_stock, 0)
+    sand_production, sand_stock, consumed_sand_stock = calculate_inventory(sand_production_)
+    gravel_production, gravel_stock, consumed_gravel_stock = calculate_inventory(gravel_production_)
 
     EoLWaste = O_Total_annual
 
@@ -845,10 +887,7 @@ def run_historical(
 
     clinker_production_ = clinker_consumption + clinker_export - clinker_import
     excess_clinker = np.where(clinker_production_ < 0, -clinker_production_, 0)
-    gg = excess_clinker.cumsum(axis=1)
-    clinker_stock = gg.copy()
-    clinker_stock[:, 3:] = gg[:, 3:] - gg[:, :-3]
-    clinker_production = np.where(clinker_production_ >= clinker_stock, clinker_production_ - clinker_stock, 0)
+    clinker_production, clinker_stock, _ = calculate_clinker_inventory(clinker_production_)
 
     r_CKD = np.load(out_dir / 'r_CKD.npz')['data']
     r_Ca = np.load(out_dir / 'r_Ca.npz')['data']
@@ -866,10 +905,7 @@ def run_historical(
     limestone_ = RawMat_Ca + limestone_export - limestone_import
     excess_limestone = np.where(limestone_ < 0, -limestone_, 0)
 
-    limestone_stock = excess_limestone.cumsum(axis=1)
-    consumed_limestone_stock = np.where((limestone_stock > 0) & (limestone_ > 0), np.where(limestone_ <= limestone_stock, limestone_, limestone_stock), 0)
-    limestone_stock = limestone_stock - consumed_limestone_stock
-    limestone_extraction = np.where(limestone_ >= consumed_limestone_stock, limestone_ - consumed_limestone_stock, 0)
+    limestone_extraction, limestone_stock, consumed_limestone_stock = calculate_inventory(limestone_)
 
     save_data('aggregate_virgin',   aggregate_virgin)
     save_data('aggregate_recycled', aggregate_recycled)
@@ -972,15 +1008,28 @@ def process_a_flow(
     current_stock = his_stock_annual[:, -1]
     future_stock_annual = current_stock[:, None] * future_stock_trajectory[None, :]
 
-    the_gap = future_stock_annual[:, 1:] - fut_his_stock_annual
-
     fut_fut_stock_array = np.full(shape=(n_sim, span, span), fill_value=np.nan).astype(np.float32)
     fut_fut_outflow_array = np.full(shape=(n_sim, span, span), fill_value=np.nan).astype(np.float32)
     future_inflows = np.empty((span, n_sim), dtype=np.float32)
     col_sums = np.zeros((n_sim, span), dtype=np.float32)
 
     for t in range(span):
-        a_inflow = the_gap[:, t] - col_sums[:, t]
+        a_inflow = future_stock_annual[:, t+1] - fut_his_stock_annual[:, t] - col_sums[:, t]
+        if np.any(a_inflow < 0):
+            # ODYM-style extra retirement: remove the same fraction of every
+            # surviving cohort, including its subsequent stock and outflows.
+            remaining = fut_his_stock_annual[:, t].astype(np.float64) + col_sums[:, t]
+            retired_share = np.divide(np.maximum(-a_inflow, 0), remaining,
+                                      out=np.zeros(n_sim), where=remaining > 0)
+            keep = 1 - retired_share
+            fut_his_outflow_annual[:, t] += fut_his_stock_annual[:, t] * retired_share
+            fut_fut_outflow_array[:, :t, t] += fut_fut_stock_array[:, :t, t] * retired_share[:, None]
+            fut_his_stock_annual[:, t:] *= keep[:, None]
+            fut_his_outflow_annual[:, t+1:] *= keep[:, None]
+            fut_fut_stock_array[:, :t, t:] *= keep[:, None, None]
+            fut_fut_outflow_array[:, :t, t+1:] *= keep[:, None, None]
+            col_sums[:, t:] *= keep[:, None]
+            a_inflow = np.maximum(a_inflow, 0)
         row_stock   = a_inflow[:, None] * fut_sur_rate[:, t, :]
         row_outflow = a_inflow[:, None] * fut_dem_rate[:, t, :]
         fut_fut_stock_array[:, t, :]   = row_stock
@@ -1250,8 +1299,8 @@ def run_projection(
         # ramp base toward the absolute target, reduction only (never increase a base already below target)
         fut_CCR = base_CCR - ambition * np.maximum(base_CCR - clinker_target, 0.0) * ccr_ramp
 
-    I_binder_for_concrete_annual_ru = np.load(output_dir / 'O_binder_for_concrete_annual.npz')['data'] * reuse_factors 
-    I_binder_for_mortar_annual_ru = np.load(output_dir / 'O_binder_for_mortar_annual.npz')['data'] * reuse_factors 
+    I_binder_for_concrete_annual_ru = np.minimum(np.load(output_dir / 'O_binder_for_concrete_annual.npz')['data'] * reuse_factors, I_binder_for_concrete_annual)
+    I_binder_for_mortar_annual_ru = np.minimum(np.load(output_dir / 'O_binder_for_mortar_annual.npz')['data'] * reuse_factors, I_binder_for_mortar_annual)
     I_binder_for_concrete_annual_v = I_binder_for_concrete_annual - I_binder_for_concrete_annual_ru 
     I_binder_for_mortar_annual_v = I_binder_for_mortar_annual - I_binder_for_mortar_annual_ru
     I_binder_annual_ru = I_binder_for_concrete_annual_ru + I_binder_for_mortar_annual_ru
@@ -1354,14 +1403,11 @@ def run_projection(
 
     all_binder = I_binder_for_concrete_annual_v * (1 - p_binder_in_importPro + p_binder_in_exportPro)[:, None] + I_binder_for_mortar_annual_v
     cement_consumption = all_binder / (1 + p_binder_slag + p_binder_FAP)[:, None]
-    cement_production = cement_consumption / (1 - p_cement_export + p_cement_import)[:, None]
+    cement_production = cement_consumption * (1 + p_cement_export - p_cement_import)[:, None]
     clinker_consumption = cement_production * fut_CCR
-    clinker_production_ = clinker_consumption / (1 - p_clinker_export + p_clinker_import)[:, None]
+    clinker_production_ = clinker_consumption * (1 + p_clinker_export - p_clinker_import)[:, None]
     excess_clinker = np.where(clinker_production_ < 0, -clinker_production_, 0)
-    hh = excess_clinker.cumsum(axis=0)
-    clinker_stock = hh.copy()
-    clinker_stock[3:] = hh[3:] - hh[:-3]
-    clinker_production = np.where(clinker_production_ >= clinker_stock, clinker_production_ - clinker_stock, 0)
+    clinker_production, clinker_stock, _ = calculate_clinker_inventory(clinker_production_)
 
     # r_Ca = np.vstack([data1['r_Ca'], data2['r_Ca']])[:, -1]
     r_Ca = make_uncertain_values(1.45402, std, span, n_sim, rng)
