@@ -1,6 +1,8 @@
 # Future biodiversity risks of land-sourced aggregate mining
 
-*Code and analysis pipeline for the manuscript by Wu, Cao, Torres et al. (2026)*
+Code and analysis pipeline accompanying the article “Future biodiversity risks of land-sourced aggregate mining” in *Nature Ecology & Evolution*.
+**Article**: [10.1038/s41559-026-03245-5](https://doi.org/10.1038/s41559-026-03245-5)
+**Associated data**: [10.5281/zenodo.23290764](https://doi.org/10.5281/zenodo.23290764)
 
 This repository contains analysis code for projecting global construction aggregate (sand, gravel, and limestone-for-cement) mining expansion through 2050 and assessing its overlap with terrestrial vertebrate biodiversity. The pipeline integrates material-flow analysis, machine-learning suitability modelling, trade-aware spatial allocation, and rarity-weighted biodiversity mapping, and evaluates how demand-side circular-economy measures and supply-side conservation-aware siting can jointly reduce mining's biodiversity footprint.
 
@@ -567,6 +569,6 @@ The main-figure and analytical Extended Data notebooks use `final_figure_export.
 
 ## 13. Citation
 
-If you use this code or data, please cite:
+If you use this code or the associated data, please cite:
 
-> Wu, T., Cao, Z., Torres, A., et al. (2026). *Future biodiversity risks of land-sourced aggregate mining.*
+> Wu, T., Cao, Z., Torres, A., et al. (2026). *Future biodiversity risks of land-sourced aggregate mining.* Nature Ecology & Evolution. https://doi.org/10.1038/s41559-026-03245-5
